@@ -1,0 +1,20 @@
+{
+  "_comment": "AMOSTRA ILUSTRATIVA — estrutura aproximada baseada em padrões comuns de webhook de ERP. Os nomes exatos dos campos (idNotificacao, situacao.id, etc.) DEVEM ser confirmados contra a documentação oficial do Bling antes de usar este fixture em testes reais. Ver 'Pontos em aberto' na spec 003.",
+
+  "idNotificacao": "evt_bling_0001",
+  "dataEvento": "2026-07-02T14:32:00-03:00",
+  "situacao": {
+    "id": 9,
+    "descricao": "Atendido"
+  },
+  "pedido": {
+    "numero": "1234",
+    "numeroLoja": "PED-1234",
+    "totalProduto": 259.90,
+    "contato": {
+      "nome": "Maria da Silva",
+      "telefone": "11999998888",
+      "email": "maria@exemplo.com"
+    }
+  }
+}

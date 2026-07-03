@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://notifiq.internal/schemas/canonical_event.schema.json",
+  "title": "CanonicalEvent",
+  "description": "Formato interno único para o qual todo adapter de integração traduz os eventos da sua fonte. Versão 1. Mudança de formato exige incrementar 'schema_version', nunca alteração silenciosa de um campo existente.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source",
+    "external_event_id",
+    "event_type",
+    "recipient",
+    "context",
+    "raw"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Versão do formato do evento canônico."
+    },
+    "source": {
+      "type": "string",
+      "description": "source_key do adapter que gerou o evento, ex.: 'bling'."
+    },
+    "external_event_id": {
+      "type": "string",
+      "description": "Identificador estável do evento na fonte original, usado para idempotência junto de 'source'."
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Tipo de evento canônico. Enum vive em Notifiq.Mensageria.EventTypes e cresce por PR, não é livre.",
+      "examples": [
+        "order_created",
+        "order_invoiced",
+        "order_shipped",
+        "auth_code_requested",
+        "marketing_campaign_triggered"
+      ]
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Preenchido pelo núcleo a partir da integração autenticada, não pelo adapter."
+    },
+    "recipient": {
+      "type": "object",
+      "description": "Quem deve receber a mensagem.",
+      "required": ["phone"],
+      "properties": {
+        "name": {
+          "type": ["string", "null"]
+        },
+        "phone": {
+          "type": "string",
+          "description": "Normalizado para E.164 pelo adapter antes de retornar o evento (ex.: '+5511999998888').",
+          "pattern": "^\\+[1-9][0-9]{7,14}$"
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Dados livres específicos do event_type, usados para preencher variáveis do template de mensagem (ex.: {{numero_pedido}}). Estrutura depende do event_type; não validado por este schema além de ser um objeto.",
+      "additionalProperties": true
+    },
+    "raw": {
+      "type": "object",
+      "description": "Payload original recebido da fonte, preservado integralmente para auditoria e depuração. Nunca usado pelo núcleo além de logging.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
