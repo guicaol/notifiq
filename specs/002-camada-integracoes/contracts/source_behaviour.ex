@@ -58,6 +58,16 @@ defmodule Notifiq.Integrations.Source do
   @callback extract_event_id(raw_payload()) :: String.t()
 
   @doc """
+  Identifica a conta da fonte (do lojista) que originou o evento — ex.: o `companyId` do
+  Bling. O núcleo a usa para descobrir a qual tenant o evento pertence (spec 008): o
+  tenant NUNCA vem do webhook, vem da integração que o lojista conectou para essa conta.
+
+  É chamado só depois de `verify_authenticity/2` ter passado. Deve ser puro, não ter
+  efeitos colaterais e nunca lançar exceção: retorne `:error` para payload sem conta.
+  """
+  @callback extract_account_id(raw_payload()) :: {:ok, String.t()} | :error
+
+  @doc """
   Traduz o payload bruto da fonte para o formato canônico interno, ou sinaliza que
   o evento deve ser ignorado (evento de um tipo que não gera notificação).
 

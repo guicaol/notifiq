@@ -92,6 +92,29 @@ defmodule Notifiq.Integrations.BlingTest do
     end
   end
 
+  describe "extract_account_id/1 (Spec 008, AC-8)" do
+    test "is the companyId of the webhook envelope" do
+      assert {:ok, "12345678901234567890123456789012"} = Bling.extract_account_id(sample())
+    end
+
+    test "accepts a numeric companyId" do
+      assert {:ok, "42"} = Bling.extract_account_id(%{"companyId" => 42})
+    end
+
+    test "is :error without a usable companyId, never an exception" do
+      for payload <- [
+            %{},
+            %{"companyId" => nil},
+            %{"companyId" => ""},
+            %{"companyId" => %{}},
+            %{"companyId" => ["x"]},
+            %{"data" => %{}}
+          ] do
+        assert :error = Bling.extract_account_id(payload), inspect(payload)
+      end
+    end
+  end
+
   describe "extract_event_id/1" do
     test "returns the eventId of the envelope" do
       assert Bling.extract_event_id(sample()) == "01968b2c-7c1e-7e4a-9d11-3b9f4f0a1234"

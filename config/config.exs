@@ -33,7 +33,22 @@ config :notifiq, Oban,
   engine: Oban.Engines.Basic,
   notifier: Oban.Notifiers.Postgres,
   repo: Notifiq.Repo,
-  queues: [ingestion: 10]
+  queues: [ingestion: 10, dispatch: 20, maintenance: 1],
+  plugins: [
+    # Rescues jobs left `executing` by a node that died.
+    Oban.Plugins.Lifeline,
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 7},
+    # Safety net: closes message logs a lost or discarded job left unfinished.
+    {Oban.Plugins.Cron, crontab: [{"*/15 * * * *", Notifiq.Mensageria.Sweeper}]}
+  ]
+
+# Dispatch worker tunables (Spec 007); see Notifiq.Mensageria.DispatchSettings.
+config :notifiq, :dispatch,
+  backoff_base: 30,
+  backoff_cap: 3_600,
+  backoff_jitter: 0.2,
+  uncertain_resends: 0,
+  stale_after: 3_600
 
 # Source adapters reachable through POST /api/webhooks/:source_key (Spec 002, FR-11).
 # Maps the URL `source_key` (string, case-sensitive) to a module implementing
@@ -41,6 +56,20 @@ config :notifiq, Oban,
 config :notifiq, :integration_sources, %{
   "bling" => Notifiq.Integrations.Bling
 }
+
+# Channel providers reachable through Notifiq.Channels.Dispatcher (Spec 004, FR-2).
+# Maps the provider key (string, case-sensitive) to a module implementing
+# `Notifiq.Channels.Provider`. Register a new provider by adding it here.
+config :notifiq, :channel_providers, %{
+  "twilio" => Notifiq.Channels.Twilio
+}
+
+# Credentials per provider key; fill them in runtime.exs from environment variables.
+config :notifiq, :channel_credentials, %{}
+
+# Maximum time (ms) a provider may take to accept a message before the outcome is
+# reported as :uncertain.
+config :notifiq, :channel_callback_timeout, 10_000
 
 # Maximum time (ms) an adapter callback may take before the request is failed.
 config :notifiq, :integration_callback_timeout, 5_000

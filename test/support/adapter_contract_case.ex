@@ -53,7 +53,13 @@ defmodule Notifiq.Integrations.AdapterContractCase do
         assert Code.ensure_loaded?(@adapter)
         assert Source in Keyword.get(@adapter.module_info(:attributes), :behaviour, [])
 
-        for {fun, arity} <- [source_key: 0, verify_authenticity: 2, extract_event_id: 1, parse: 1] do
+        for {fun, arity} <- [
+              source_key: 0,
+              verify_authenticity: 2,
+              extract_event_id: 1,
+              extract_account_id: 1,
+              parse: 1
+            ] do
           assert function_exported?(@adapter, fun, arity), "missing #{fun}/#{arity}"
         end
       end
@@ -81,6 +87,15 @@ defmodule Notifiq.Integrations.AdapterContractCase do
         id = @adapter.extract_event_id(@valid_payload)
         assert is_binary(id) and id != ""
         assert id == @adapter.extract_event_id(@valid_payload)
+      end
+
+      test "extract_account_id/1 returns the source account, or :error without one" do
+        assert {:ok, account} = @adapter.extract_account_id(@valid_payload)
+        assert is_binary(account) and account != ""
+        assert account == elem(@adapter.extract_account_id(@valid_payload), 1)
+
+        assert :error = @adapter.extract_account_id(%{})
+        assert :error = @adapter.extract_account_id(%{"unrelated" => 1})
       end
 
       test "parse/1 returns a well-formed canonical event" do

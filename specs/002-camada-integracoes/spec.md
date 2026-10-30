@@ -118,6 +118,9 @@ dos arquivos de contrato — eles são a fonte executável.
   variáveis de ambiente — nunca no código-fonte.
 - **Worker:** `Notifiq.Mensageria.EventWorker` apenas carrega o evento; crédito e disparo
   são das specs 006/007.
+- **Spec 008:** o `Source` ganhou um quinto callback, `extract_account_id/1`, e o evento
+  gravado passa a ter `tenant_id` (resolvido pela integração, nunca pelo adapter). Um webhook
+  assinado de conta sem integração responde 200 `unknown_account`.
 - **Lacuna conhecida:** o 400 por JSON inválido não gera log estruturado (o erro é levantado
   pelo `Plug.Parsers`, antes do controller).
 - **AC-4/AC-8:** no sandbox do Ecto as requisições paralelas compartilham uma conexão e são

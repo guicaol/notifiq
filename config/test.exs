@@ -37,6 +37,25 @@ config :notifiq, :integration_credentials, %{
 
 config :notifiq, :integration_callback_timeout, 500
 
+config :notifiq, :channel_providers, %{
+  "twilio" => Notifiq.Channels.Twilio,
+  "fake_sms" => Notifiq.Test.FakeProvider,
+  "fake_multi" => Notifiq.Test.OtherFakeProvider
+}
+
+config :notifiq, :channel_credentials, %{
+  "fake_sms" => %{api_key: "test-api-key"},
+  "twilio" => %{
+    account_sid: "AC00000000000000000000000000000000",
+    auth_token: "test-twilio-token",
+    sms_from: "+15005550006"
+  }
+}
+
+# Twilio talks to Req.Test stubs, never to the network (Spec 005, AC-12).
+config :notifiq, Notifiq.Channels.Twilio, req_options: [plug: {Req.Test, Notifiq.Channels.Twilio}]
+config :notifiq, :channel_callback_timeout, 300
+
 # In test we don't send emails
 config :notifiq, Notifiq.Mailer, adapter: Swoosh.Adapters.Test
 

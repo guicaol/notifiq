@@ -4,15 +4,27 @@ defmodule NotifiqWeb.WebhookControllerTest do
   use Oban.Testing, repo: Notifiq.Repo
 
   import ExUnit.CaptureLog
+  import Notifiq.Test.MensageriaHelpers, only: [integration!: 3, tenant!: 2]
 
   alias Notifiq.Mensageria.EventWorker
   alias Notifiq.Mensageria.WebhookEvent
   alias Notifiq.Repo
+  alias Notifiq.Tenants
 
   @payload %{"id" => "evt-1", "name" => "Maria", "order" => "100"}
 
   defp webhook_path(source_key), do: "/api/webhooks/#{source_key}"
   defp event_count, do: Repo.aggregate(WebhookEvent, :count)
+
+  # Every webhook is attributed to a tenant through the integration that owns its account
+  # (Spec 008): without one it would be answered `unknown_account` and stored nowhere.
+  setup do
+    tenant = tenant!(0, "Webhook tenant")
+    integration!(tenant, "fake", Notifiq.Test.FakeSource.default_account())
+    integration!(tenant, "other_fake", Notifiq.Test.OtherFakeSource.default_account())
+
+    %{tenant: tenant}
+  end
 
   describe "routing (FR-1, FR-2)" do
     test "AC-1: routes to the registered adapter and enqueues one job", %{conn: conn} do
@@ -137,12 +149,13 @@ defmodule NotifiqWeb.WebhookControllerTest do
       assert length(all_enqueued(worker: EventWorker)) == 2
     end
 
-    test "the database itself rejects a duplicate (source, external_event_id)" do
+    test "the database itself rejects a duplicate (source, external_event_id)", %{tenant: tenant} do
       row = fn ->
         now = DateTime.utc_now()
 
         %{
           id: Ecto.UUID.generate(),
+          tenant_id: tenant.id,
           source: "fake",
           external_event_id: "dup",
           event_type: "order_created",
@@ -223,6 +236,160 @@ defmodule NotifiqWeb.WebhookControllerTest do
       assert event_count() == 50
       # Heavy work is deferred: the jobs are only enqueued, never run inline.
       assert length(all_enqueued(worker: EventWorker)) == 50
+    end
+  end
+
+  describe "tenant resolution (Spec 008)" do
+    alias Notifiq.Mensageria
+
+    defp accepted, do: %{"status" => "accepted"}
+
+    test "AC-3: the event is stored under the tenant of its account, everywhere it travels",
+         %{conn: conn, tenant: tenant} do
+      assert json_response(post(conn, webhook_path("fake"), @payload), 200) == accepted()
+
+      assert %WebhookEvent{id: id, tenant_id: tenant_id, payload: payload} =
+               Repo.one!(WebhookEvent)
+
+      assert tenant_id == tenant.id
+      assert payload["tenant_id"] == tenant.id
+      assert_enqueued(worker: EventWorker, args: %{webhook_event_id: id, tenant_id: tenant.id})
+    end
+
+    test "AC-4: two tenants with different accounts of one source each get their own events",
+         %{conn: conn, tenant: a} do
+      b = tenant!(0, "Tenant B")
+      integration!(b, "fake", "account-b")
+
+      post(conn, webhook_path("fake"), %{"id" => "evt-a"})
+      post(build_conn(), webhook_path("fake"), %{"id" => "evt-b", "account" => "account-b"})
+
+      assert [%{external_event_id: "evt-a"}] = Mensageria.list_webhook_events(a.id)
+      assert [%{external_event_id: "evt-b"}] = Mensageria.list_webhook_events(b.id)
+
+      assert Mensageria.get_webhook_event(a.id, hd(Mensageria.list_webhook_events(b.id)).id) ==
+               nil
+    end
+
+    test "the tenant can't be chosen through the payload", %{conn: conn, tenant: a} do
+      b = tenant!(0, "Tenant B")
+      integration!(b, "fake", "account-b")
+
+      payload = Map.merge(@payload, %{"tenant_id" => b.id, "tenant" => b.id, "tenantId" => b.id})
+      assert json_response(post(conn, webhook_path("fake"), payload), 200) == accepted()
+
+      assert [%{tenant_id: owner}] = Repo.all(WebhookEvent)
+      assert owner == a.id
+      assert Mensageria.list_webhook_events(b.id) == []
+    end
+
+    test "AC-5: an account nobody connected is acknowledged and stored nowhere", %{conn: conn} do
+      Logger.put_module_level(Notifiq.Integrations.Ingestion, :info)
+      on_exit(fn -> Logger.delete_module_level(Notifiq.Integrations.Ingestion) end)
+
+      log =
+        capture_log([level: :info], fn ->
+          conn = post(conn, webhook_path("fake"), %{"id" => "evt-x", "account" => "nobody"})
+          assert json_response(conn, 200) == %{"status" => "unknown_account"}
+        end)
+
+      assert log =~ "no active integration source_key=fake"
+      refute log =~ "nobody"
+      assert event_count() == 0
+      refute_enqueued(worker: EventWorker)
+    end
+
+    test "AC-5: a disabled integration no longer receives events", %{conn: conn, tenant: tenant} do
+      [fake | _] = Enum.filter(Tenants.list_integrations(tenant.id), &(&1.source == "fake"))
+      {:ok, _} = Tenants.disconnect_integration(tenant.id, fake.id)
+
+      assert json_response(post(conn, webhook_path("fake"), @payload), 200) ==
+               %{"status" => "unknown_account"}
+
+      assert event_count() == 0
+    end
+
+    test "after a reconnection the events go to the new owner", %{conn: conn, tenant: old_owner} do
+      new_owner = tenant!(0, "New owner")
+      [fake | _] = Enum.filter(Tenants.list_integrations(old_owner.id), &(&1.source == "fake"))
+      {:ok, _} = Tenants.disconnect_integration(old_owner.id, fake.id)
+      integration!(new_owner, "fake", Notifiq.Test.FakeSource.default_account())
+
+      assert json_response(post(conn, webhook_path("fake"), @payload), 200) == accepted()
+
+      assert [%{tenant_id: owner}] = Repo.all(WebhookEvent)
+      assert owner == new_owner.id
+      assert Mensageria.list_webhook_events(old_owner.id) == []
+    end
+
+    test "the adapter's parse isn't even called for an unknown account", %{conn: conn} do
+      payload = %{"id" => "evt-x", "account" => "nobody", "type" => "raise"}
+
+      assert json_response(post(conn, webhook_path("fake"), payload), 200) ==
+               %{"status" => "unknown_account"}
+    end
+
+    test "AC-6: an invalid signature is the same 401 whether the account exists or not",
+         %{conn: conn} do
+      known =
+        conn
+        |> put_req_header("x-fake-signature", "invalid")
+        |> post(webhook_path("fake"), @payload)
+
+      unknown =
+        build_conn()
+        |> put_req_header("x-fake-signature", "invalid")
+        |> post(webhook_path("fake"), %{"id" => "evt-x", "account" => "nobody"})
+
+      assert json_response(known, 401) == json_response(unknown, 401)
+      assert event_count() == 0
+    end
+
+    test "AC-7: a payload without a source account is rejected, not guessed", %{conn: conn} do
+      capture_log(fn ->
+        conn = post(conn, webhook_path("fake"), %{"id" => "evt-x", "type" => "no_account"})
+
+        assert json_response(conn, 200) ==
+                 %{"status" => "rejected", "reason" => "missing_account_id"}
+      end)
+
+      assert event_count() == 0
+    end
+
+    test "AC-7: a crash in extract_account_id/1 is contained and reported", %{conn: conn} do
+      log =
+        capture_log(fn ->
+          conn = post(conn, webhook_path("fake"), %{"id" => "evt-x", "type" => "raise_account"})
+
+          assert json_response(conn, 200) ==
+                   %{"status" => "rejected", "reason" => "missing_account_id"}
+        end)
+
+      assert log =~ "integration callback raised source_key=fake callback=extract_account_id"
+      assert event_count() == 0
+
+      # and the next request is served normally
+      assert json_response(post(build_conn(), webhook_path("fake"), @payload), 200) == accepted()
+    end
+
+    test "a source's event id seen through another tenant's account is a duplicate",
+         %{conn: conn, tenant: a} do
+      b = tenant!(0, "Tenant B")
+      integration!(b, "fake", "account-b")
+
+      assert json_response(post(conn, webhook_path("fake"), %{"id" => "same"}), 200) == accepted()
+
+      assert json_response(
+               post(build_conn(), webhook_path("fake"), %{
+                 "id" => "same",
+                 "account" => "account-b"
+               }),
+               200
+             ) == %{"status" => "duplicate"}
+
+      assert [%{tenant_id: owner}] = Repo.all(WebhookEvent)
+      assert owner == a.id
+      assert Mensageria.list_webhook_events(b.id) == []
     end
   end
 end

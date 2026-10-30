@@ -56,6 +56,16 @@ defmodule Notifiq.Integrations.Bling do
   def extract_event_id(%{"eventId" => id}) when is_binary(id) or is_integer(id), do: to_string(id)
   def extract_event_id(_payload), do: ""
 
+  # `companyId` is part of the documented webhook envelope: the Bling company that owns the
+  # order. The core maps it to a tenant through the integration the merchant connected.
+  @impl true
+  def extract_account_id(%{"companyId" => id}) when is_binary(id) and id != "", do: {:ok, id}
+
+  def extract_account_id(%{"companyId" => id}) when is_integer(id),
+    do: {:ok, Integer.to_string(id)}
+
+  def extract_account_id(_payload), do: :error
+
   @impl true
   def parse(%{"event" => event} = payload) when event in @handled_events do
     with {:ok, data} <- fetch_data(payload),

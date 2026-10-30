@@ -9,6 +9,7 @@ defmodule Notifiq.Application do
   def start(_type, _args) do
     # Fail the boot (not the first request) when a configured adapter is broken.
     Notifiq.Integrations.Registry.validate!()
+    Notifiq.Channels.Registry.validate!()
 
     children = [
       NotifiqWeb.Telemetry,

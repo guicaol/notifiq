@@ -64,6 +64,37 @@ if config_env() in [:dev, :prod] do
   config :notifiq, :integration_credentials, %{
     "bling" => %{client_secret: bling_client_secret}
   }
+
+  # Twilio SMS (Spec 005). Required in prod: account, token and one sender (a number or a
+  # Messaging Service). In dev they may be absent: dispatches then fail with
+  # `:missing_credentials` instead of reaching Twilio.
+  require_in_prod = fn name ->
+    System.get_env(name) ||
+      if config_env() == :prod do
+        raise "environment variable #{name} is missing (Twilio credentials, Spec 005)."
+      end
+  end
+
+  twilio_account_sid = require_in_prod.("TWILIO_ACCOUNT_SID")
+  twilio_auth_token = require_in_prod.("TWILIO_AUTH_TOKEN")
+  twilio_messaging_service_sid = System.get_env("TWILIO_MESSAGING_SERVICE_SID")
+  twilio_sms_from = System.get_env("TWILIO_SMS_FROM")
+
+  if config_env() == :prod and is_nil(twilio_messaging_service_sid) and is_nil(twilio_sms_from) do
+    raise """
+    environment variable TWILIO_SMS_FROM or TWILIO_MESSAGING_SERVICE_SID is missing.
+    Twilio needs a sender number or a Messaging Service to send SMS.
+    """
+  end
+
+  config :notifiq, :channel_credentials, %{
+    "twilio" => %{
+      account_sid: twilio_account_sid,
+      auth_token: twilio_auth_token,
+      messaging_service_sid: twilio_messaging_service_sid,
+      sms_from: twilio_sms_from
+    }
+  }
 end
 
 if config_env() == :prod do

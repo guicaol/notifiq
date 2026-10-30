@@ -14,6 +14,13 @@ defmodule Notifiq.Test.OtherFakeSource do
   @impl true
   def extract_event_id(payload), do: to_string(payload["id"])
 
+  def default_account, do: "other-account"
+
+  @impl true
+  def extract_account_id(%{"account" => account}) when is_binary(account), do: {:ok, account}
+  def extract_account_id(%{"id" => _id}), do: {:ok, default_account()}
+  def extract_account_id(_payload), do: :error
+
   @impl true
   def parse(payload) do
     {:ok,

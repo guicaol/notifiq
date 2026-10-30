@@ -26,20 +26,26 @@ equivalentes).
 | [001](001-scaffolding-phoenix/spec.md) | Scaffolding do projeto Phoenix | — | Implementada |
 | [002](002-camada-integracoes/spec.md) | Camada de abstração de integrações | 001 | Implementada |
 | [003](003-adapter-bling/spec.md) | Adapter do Bling | 002 | Implementada — validar `data` com entrega real |
+| [004](004-contrato-canal-saida/spec.md) | Contrato de canal de saída | 002 | Implementada |
+| [005](005-adapter-twilio/spec.md) | Adapter do Twilio (SMS) | 004 | Implementada — só SMS; WhatsApp exige templates |
+| [006](006-nucleo-mensageria/spec.md) | Núcleo Mensageria: crédito e idempotência | 002, 004 | Implementada |
+| [007](007-worker-disparo/spec.md) | Worker de disparo, retentativas e backoff | 006 | Implementada — acionado pelo `EventWorker` desde a Spec 009 |
+| [008](008-multi-tenancy/spec.md) | Multi-tenancy: resolução do tenant e isolamento | 002, 006 | Implementada — plug de isolamento espera a autenticação |
+| [009](009-templates-mensagem/spec.md) | Templates de mensagem e ligação do pipeline | 007, 008 | Implementada — só SMS; sem tela para editar templates |
 
 ## Próximas specs sugeridas (ainda não escritas)
 
 Seguindo a mesma granularidade, os próximos candidatos naturais, na ordem em que aparecem no
 plano de implementação:
 
-- **004** — Contrato de canal de saída (`Notifiq.Channels.Provider`), espelhando a Spec 002
-  para o lado de disparo.
-- **005** — Adapter de canal Twilio (implementa `Channels.Provider`), espelhando a Spec 003.
-- **006** — Núcleo `Mensageria`: consumo de crédito transacional (`Ecto.Multi`), idempotência
-  ligada ao registro em `webhook_events`.
-- **007** — Worker Oban de disparo, retentativas e backoff.
-- **008** — Multi-tenancy: middleware/plug de isolamento por `tenant_id` e o teste de
-  isolamento obrigatório (Constitution, princípio 7).
+- **010** — Autenticação e painel do lojista: usuários, sessão, o plug de isolamento por
+  `tenant_id` e a tela para conectar a conta do Bling (chama `connect_integration/2`).
+- **012** — Reprocessar eventos `insufficient_credits` depois de uma recarga (com prazo de
+  validade) e alertas de eventos que ficaram sem envio.
+- **013** — WhatsApp: estender `OutboundMessage` com template aprovado (`ContentSid` +
+  variáveis) e declarar `:whatsapp` no provider do Twilio (ver Spec 005).
+- **011** — OAuth do Bling: tokens por integração, **criptografados** (Constitution,
+  princípio 6) — necessário para buscar o telefone do contato, que o webhook pode não trazer.
 
 Cada uma deve seguir o mesmo formato: goal, user story, requisitos EARS, non-goals, edge
 cases, critérios de aceite, rastreabilidade ao backlog e à constitution.

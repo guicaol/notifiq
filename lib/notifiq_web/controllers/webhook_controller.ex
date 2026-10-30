@@ -27,7 +27,7 @@ defmodule NotifiqWeb.WebhookController do
     do: respond_error(conn, :unauthorized, "unauthorized")
 
   # A signed event we can't use will never become usable: answer 2xx so sources that
-  # retry on failures (Bling retries for days, then disables the webhook) stop sending.
+  # retry on failures (some retry for days, then disable the webhook) stop sending.
   defp respond({:error, {:unprocessable, reason}}, conn) do
     json(conn, %{status: "rejected", reason: Atom.to_string(reason)})
   end

@@ -4,6 +4,7 @@ defmodule NotifiqWeb.BlingWebhookTest do
   use Oban.Testing, repo: Notifiq.Repo
 
   import ExUnit.CaptureLog
+  import Notifiq.Test.MensageriaHelpers, only: [integration!: 3, tenant!: 2]
 
   alias Notifiq.Mensageria.EventWorker
   alias Notifiq.Mensageria.WebhookEvent
@@ -11,6 +12,16 @@ defmodule NotifiqWeb.BlingWebhookTest do
   alias Notifiq.Test.BlingHelpers
 
   @path "/api/webhooks/bling"
+
+  # `companyId` of the sample payload. The merchant connected that Bling company to a
+  # tenant; without that integration the webhook would be `unknown_account` (Spec 008).
+  @company_id "12345678901234567890123456789012"
+
+  setup do
+    tenant = tenant!(0, "Bling merchant")
+    integration!(tenant, "bling", @company_id)
+    %{tenant: tenant}
+  end
 
   defp deliver(conn, body, signature \\ nil) do
     conn
@@ -91,5 +102,59 @@ defmodule NotifiqWeb.BlingWebhookTest do
     end)
 
     assert Repo.aggregate(WebhookEvent, :count) == 0
+  end
+
+  describe "which merchant owns the order (Spec 008)" do
+    test "the event goes to the tenant that connected the order's Bling company",
+         %{conn: conn, tenant: tenant} do
+      other = tenant!(0, "Another merchant")
+      integration!(other, "bling", "99999999999999999999999999999999")
+
+      assert json_response(deliver(conn, body()), 200) == %{"status" => "accepted"}
+
+      assert %WebhookEvent{tenant_id: owner} = Repo.one!(WebhookEvent)
+      assert owner == tenant.id
+    end
+
+    test "a company nobody connected is acknowledged with 200 and stored nowhere", %{conn: conn} do
+      payload =
+        Map.put(BlingHelpers.sample_payload(), "companyId", "00000000000000000000000000000000")
+
+      assert json_response(deliver(conn, body(payload)), 200) == %{"status" => "unknown_account"}
+      assert Repo.aggregate(WebhookEvent, :count) == 0
+      refute_enqueued(worker: EventWorker)
+    end
+
+    test "a numeric companyId is matched too", %{conn: conn} do
+      merchant = tenant!(0, "Numeric merchant")
+      integration!(merchant, "bling", "42")
+      payload = Map.put(BlingHelpers.sample_payload(), "companyId", 42)
+
+      assert json_response(deliver(conn, body(payload)), 200) == %{"status" => "accepted"}
+      assert %WebhookEvent{tenant_id: owner} = Repo.one!(WebhookEvent)
+      assert owner == merchant.id
+    end
+
+    test "an envelope without companyId is rejected with 200", %{conn: conn} do
+      payload = Map.delete(BlingHelpers.sample_payload(), "companyId")
+
+      capture_log(fn ->
+        assert json_response(deliver(conn, body(payload)), 200) ==
+                 %{"status" => "rejected", "reason" => "missing_account_id"}
+      end)
+
+      assert Repo.aggregate(WebhookEvent, :count) == 0
+    end
+
+    test "a forged signature for an unknown company is still just 401", %{conn: conn} do
+      payload =
+        Map.put(BlingHelpers.sample_payload(), "companyId", "00000000000000000000000000000000")
+
+      forged = BlingHelpers.sign(body(payload), "wrong-secret")
+
+      assert json_response(deliver(conn, body(payload), forged), 401) == %{
+               "error" => "unauthorized"
+             }
+    end
   end
 end

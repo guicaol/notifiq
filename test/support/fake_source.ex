@@ -31,6 +31,16 @@ defmodule Notifiq.Test.FakeSource do
   @impl true
   def extract_event_id(payload), do: to_string(payload["id"])
 
+  @doc "The account the fake events belong to unless the payload says `\"account\"`."
+  def default_account, do: "fake-account"
+
+  @impl true
+  def extract_account_id(%{"type" => "no_account"}), do: :error
+  def extract_account_id(%{"type" => "raise_account"}), do: raise("boom in extract_account_id")
+  def extract_account_id(%{"account" => account}) when is_binary(account), do: {:ok, account}
+  def extract_account_id(%{"id" => _id}), do: {:ok, default_account()}
+  def extract_account_id(_payload), do: :error
+
   @impl true
   def parse(%{"type" => "ignore"}), do: {:ok, :ignore}
   def parse(%{"type" => "raise"}), do: raise("boom from fake adapter")

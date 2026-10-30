@@ -89,6 +89,8 @@ Pesquisados na documentação oficial (<https://developer.bling.com.br/webhooks>
 - `verify_authenticity/2` falha fechado: sem *client secret* configurado retorna
   `{:error, :missing_credentials}` (401) e loga um erro. O segredo vem de `BLING_CLIENT_SECRET`
   (`config/runtime.exs`; obrigatório em prod).
+- `extract_account_id/1` devolve o `companyId` do envelope (string ou inteiro); sem ele,
+  `:error`. É a conta que o lojista conecta na Spec 008.
 - Apenas `order.created` e `order.updated` são processados; qualquer outro recurso/ação
   (`product.*`, `stock.*`, `invoice.*`, `order.deleted`) → `{:ok, :ignore}`.
 - Telefone: usa `data.contato.telefone` e, se vazio, `data.contato.celular` (extensão à spec).

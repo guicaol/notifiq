@@ -18,17 +18,58 @@ defmodule Notifiq.Integrations.Ingestion do
   alias Notifiq.Mensageria.EventWorker
   alias Notifiq.Mensageria.WebhookEvent
   alias Notifiq.Repo
+  alias Notifiq.Tenants
 
-  @type success :: :accepted | :duplicate | :ignored
+  @type success :: :accepted | :duplicate | :ignored | :unknown_account
   @type failure ::
           :not_found | :unauthorized | :internal | {:unprocessable, atom()}
 
+  @doc """
+  Runs the pipeline. The order matters (Spec 008): the adapter is looked up, the request is
+  authenticated, and only then is the payload read to find the source account and, through
+  the active integration, the tenant. The tenant never comes from the webhook itself.
+
+  A signed event from an account nobody has connected (or whose integration was disabled)
+  is acknowledged as `:unknown_account` and stored nowhere.
+  """
   @spec ingest(String.t(), Plug.Conn.t(), map()) :: {:ok, success()} | {:error, failure()}
   def ingest(source_key, %Plug.Conn{} = conn, payload) when is_map(payload) do
     with {:ok, adapter} <- fetch_adapter(source_key),
          :ok <- verify(adapter, source_key, conn),
+         {:ok, tenant_id} <- resolve_tenant(adapter, source_key, payload),
          {:ok, parsed} <- parse(adapter, source_key, payload) do
-      store(source_key, parsed)
+      store(source_key, tenant_id, parsed)
+    else
+      {:error, :unknown_account} -> {:ok, :unknown_account}
+      other -> other
+    end
+  end
+
+  defp resolve_tenant(adapter, source_key, payload) do
+    case call(source_key, :extract_account_id, fn -> adapter.extract_account_id(payload) end) do
+      {:ok, {:ok, account_id}} when is_binary(account_id) and account_id != "" ->
+        lookup_tenant(source_key, account_id)
+
+      {:ok, :error} ->
+        Logger.warning("webhook without a source account source_key=#{source_key}")
+        {:error, {:unprocessable, :missing_account_id}}
+
+      {:ok, other} ->
+        unexpected(source_key, :extract_account_id, other)
+
+      :failed ->
+        {:error, {:unprocessable, :missing_account_id}}
+    end
+  end
+
+  defp lookup_tenant(source_key, account_id) do
+    case Tenants.resolve_tenant(source_key, account_id) do
+      {:ok, tenant_id} ->
+        {:ok, tenant_id}
+
+      :error ->
+        Logger.info("webhook for an account with no active integration source_key=#{source_key}")
+        {:error, :unknown_account}
     end
   end
 
@@ -80,12 +121,15 @@ defmodule Notifiq.Integrations.Ingestion do
     end
   end
 
-  defp store(_source_key, :ignore), do: {:ok, :ignored}
+  defp store(_source_key, _tenant_id, :ignore), do: {:ok, :ignored}
 
-  defp store(source_key, %CanonicalEvent{} = event) do
+  defp store(source_key, tenant_id, %CanonicalEvent{} = event) do
+    # The tenant is decided here, from the integration, never by the adapter.
+    event = %{event | tenant_id: tenant_id}
+
     Multi.new()
     |> Multi.run(:event, fn repo, _changes -> insert_event(repo, source_key, event) end)
-    |> Multi.run(:job, fn _repo, %{event: inserted} -> enqueue(inserted) end)
+    |> Multi.run(:job, fn _repo, %{event: inserted} -> enqueue(inserted, tenant_id) end)
     |> Repo.transaction()
     |> case do
       {:ok, %{event: {:inserted, _id}}} ->
@@ -108,6 +152,7 @@ defmodule Notifiq.Integrations.Ingestion do
 
     row = %{
       id: Ecto.UUID.generate(),
+      tenant_id: event.tenant_id,
       source: source_key,
       external_event_id: event.external_event_id,
       event_type: event.event_type,
@@ -129,8 +174,11 @@ defmodule Notifiq.Integrations.Ingestion do
     end
   end
 
-  defp enqueue({:inserted, id}), do: Oban.insert(EventWorker.new(%{webhook_event_id: id}))
-  defp enqueue(:duplicate), do: {:ok, nil}
+  defp enqueue({:inserted, id}, tenant_id) do
+    Oban.insert(EventWorker.new(%{webhook_event_id: id, tenant_id: tenant_id}))
+  end
+
+  defp enqueue(:duplicate, _tenant_id), do: {:ok, nil}
 
   # Runs an adapter callback with a timeout, converting any raise/throw/exit into
   # `:failed` after logging it with the `source_key`.
