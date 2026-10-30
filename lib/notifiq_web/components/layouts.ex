@@ -13,6 +13,13 @@ defmodule NotifiqWeb.Layouts do
 
   @nav [
     resumo: %{label: "Resumo", icon: "hero-squares-2x2", path: "/painel"},
+    mensagens: %{
+      label: "Mensagens",
+      icon: "hero-chat-bubble-left-right",
+      path: "/painel/mensagens"
+    },
+    templates: %{label: "Templates", icon: "hero-document-text", path: "/painel/templates"},
+    creditos: %{label: "Créditos", icon: "hero-banknotes", path: "/painel/creditos"},
     integracoes: %{label: "Integrações", icon: "hero-puzzle-piece", path: "/painel/integracoes"}
   ]
 

@@ -36,6 +36,23 @@ defmodule NotifiqWeb.FormatTest do
     end
   end
 
+  describe "datetime/1 (Spec 011)" do
+    test "writes an absolute moment in UTC and says so" do
+      assert Format.datetime(~U[2026-10-30 14:05:09.123456Z]) == "30/10/2026 14:05 UTC"
+      assert Format.datetime(~U[2026-01-02 00:00:00Z]) == "02/01/2026 00:00 UTC"
+    end
+  end
+
+  describe "signed/1 (Spec 011)" do
+    test "puts a sign on every amount, with a real minus" do
+      assert Format.signed(3) == "+3"
+      assert Format.signed(0) == "+0"
+      assert Format.signed(-1) == "−1"
+      assert Format.signed(-1_200) == "−1.200"
+      assert Format.signed(1_234_567) == "+1.234.567"
+    end
+  end
+
   test "number/1 groups thousands with dots" do
     assert Format.number(0) == "0"
     assert Format.number(999) == "999"

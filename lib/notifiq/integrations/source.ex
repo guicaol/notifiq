@@ -70,10 +70,17 @@ defmodule Notifiq.Integrations.Source do
   @doc """
   Como a fonte aparece para o lojista no painel (spec 010): `name` é o nome da fonte e
   `account_label` o rótulo do campo em que ele informa o identificador da conta (o mesmo
-  valor que `extract_account_id/1` extrai dos webhooks). É constante e puro; as telas do
-  painel usam isto em vez de citar qualquer fonte pelo nome.
+  valor que `extract_account_id/1` extrai dos webhooks). `variables` lista as chaves de
+  `context` que a fonte põe nos eventos (spec 011): `name` é a chave (`[a-z][a-z0-9_]*`),
+  `label` como o lojista a conhece e `example` o valor usado na pré-visualização do
+  template. É constante e puro; as telas do painel usam isto em vez de citar qualquer fonte
+  pelo nome.
   """
-  @callback metadata() :: %{name: String.t(), account_label: String.t()}
+  @callback metadata() :: %{
+              name: String.t(),
+              account_label: String.t(),
+              variables: [%{name: String.t(), label: String.t(), example: String.t()}]
+            }
 
   @doc """
   Traduz o payload bruto da fonte para o formato canônico interno, ou sinaliza que

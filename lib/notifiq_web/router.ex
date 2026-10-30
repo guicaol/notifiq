@@ -37,6 +37,12 @@ defmodule NotifiqWeb.Router do
 
     live_session :authenticated, on_mount: [{NotifiqWeb.UserAuth, :require_authenticated}] do
       live "/painel", PainelLive.Dashboard, :index
+      live "/painel/mensagens", PainelLive.Mensagens, :index
+      live "/painel/mensagens/:id", PainelLive.Mensagem, :show
+      live "/painel/templates", PainelLive.Templates, :index
+      live "/painel/templates/novo", PainelLive.TemplateForm, :new
+      live "/painel/templates/:id/editar", PainelLive.TemplateForm, :edit
+      live "/painel/creditos", PainelLive.Creditos, :index
       live "/painel/integracoes", PainelLive.Integracoes, :index
     end
   end

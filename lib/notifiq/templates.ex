@@ -2,13 +2,15 @@ defmodule Notifiq.Templates do
   @moduledoc """
   A tenant's message templates (Spec 009): what to send for each type of event.
 
-  Every function takes the `tenant_id` and filters by it (Constitution, principle 7); the
-  tenant is never read from params. There is no screen for this yet — these are the
-  functions the tenant panel will call.
+  Every function that reads or writes templates takes the `tenant_id` and filters by it
+  (Constitution, principle 7); the tenant is never read from params. The tenant panel
+  (Spec 011) calls these; `available_variables/0`, `unknown_variables/1` and `preview/1`
+  are the panel's helpers for writing a template and touch no tenant data.
   """
 
   import Ecto.Query
 
+  alias Notifiq.Integrations.Registry, as: IntegrationsRegistry
   alias Notifiq.Repo
   alias Notifiq.Templates.MessageTemplate
   alias Notifiq.Templates.Renderer
@@ -72,6 +74,47 @@ defmodule Notifiq.Templates do
       from t in MessageTemplate,
         where: t.tenant_id == ^tenant_id and t.event_type == ^event_type and t.active
     )
+  end
+
+  @doc "A changeset for the template form; the tenant of `template` is never touched."
+  @spec change_template(MessageTemplate.t(), map()) :: Ecto.Changeset.t()
+  def change_template(%MessageTemplate{} = template, attrs \\ %{}),
+    do: MessageTemplate.changeset(template, attrs)
+
+  @core_variable %{name: "recipient_name", label: "Nome do destinatário", example: "Maria Silva"}
+
+  @doc """
+  The variables a template can use (Spec 011): the recipient's name, which every event
+  carries, followed by what each registered source declares in `metadata/0`. A name that
+  two sources declare appears once, the first declaration winning.
+  """
+  @spec available_variables() :: [%{name: String.t(), label: String.t(), example: String.t()}]
+  def available_variables do
+    sources = Enum.flat_map(IntegrationsRegistry.describe_all(), & &1.variables)
+    Enum.uniq_by([@core_variable | sources], & &1.name)
+  end
+
+  @doc """
+  The variables `body` uses that no source or event carries, so the template could never be
+  rendered (or would silently use its default). `{:error, :invalid_syntax}` when `body` does
+  not parse.
+  """
+  @spec unknown_variables(String.t()) :: {:ok, [String.t()]} | {:error, :invalid_syntax}
+  def unknown_variables(body) do
+    known = MapSet.new(available_variables(), & &1.name)
+
+    with {:ok, used} <- Renderer.variables(body) do
+      {:ok, Enum.reject(used, &MapSet.member?(known, &1))}
+    end
+  end
+
+  @doc """
+  Renders `body` with the example values of `available_variables/0`: what the merchant sees
+  before saving. No real event is involved.
+  """
+  @spec preview(String.t()) :: {:ok, String.t()} | {:error, Renderer.error()}
+  def preview(body) do
+    Renderer.render(body, Map.new(available_variables(), &{&1.name, &1.example}))
   end
 
   @doc """

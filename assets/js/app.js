@@ -68,6 +68,21 @@ window.addEventListener("phx:copy", async event => {
   }
 })
 
+// Insert text where the cursor is: `phx-click={JS.dispatch("phx:insert", detail: %{target:
+// "#field", text: "..."})}`. Dispatching `input` afterwards lets LiveView see the change.
+window.addEventListener("phx:insert", event => {
+  const {target, text} = event.detail || {}
+  const field = typeof target === "string" ? document.querySelector(target) : null
+  if (!field || typeof text !== "string") return
+
+  const start = field.selectionStart ?? field.value.length
+  const end = field.selectionEnd ?? start
+  field.value = field.value.slice(0, start) + text + field.value.slice(end)
+  field.setSelectionRange(start + text.length, start + text.length)
+  field.focus()
+  field.dispatchEvent(new Event("input", {bubbles: true}))
+})
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

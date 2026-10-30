@@ -37,7 +37,16 @@ defmodule Notifiq.Integrations.Bling do
   def source_key, do: :bling
 
   @impl true
-  def metadata, do: %{name: "Bling", account_label: "ID da empresa no Bling (companyId)"}
+  def metadata do
+    %{
+      name: "Bling",
+      account_label: "ID da empresa no Bling (companyId)",
+      variables: [
+        %{name: "numero_pedido", label: "Número do pedido", example: "4321"},
+        %{name: "nome_cliente", label: "Nome do cliente", example: "Maria Silva"}
+      ]
+    }
+  end
 
   @impl true
   def verify_authenticity(conn, credentials) do

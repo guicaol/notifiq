@@ -72,6 +72,30 @@ defmodule Notifiq.Integrations.AdapterContractCase do
         assert @adapter.metadata() == @adapter.metadata()
       end
 
+      test "metadata/0 declares well-formed, unique template variables (Spec 011)" do
+        assert %{variables: variables} = @adapter.metadata()
+        assert is_list(variables)
+
+        for variable <- variables do
+          assert %{name: name, label: label, example: example} = variable
+          assert map_size(variable) == 3
+          assert is_binary(name) and name =~ ~r/^[a-z][a-z0-9_]*$/
+          assert is_binary(label) and String.trim(label) != ""
+          assert is_binary(example) and String.trim(example) != ""
+        end
+
+        names = Enum.map(variables, & &1.name)
+        assert names == Enum.uniq(names)
+      end
+
+      test "the variables a source declares are the ones its events carry (Spec 011)" do
+        {:ok, event} = @adapter.parse(@valid_payload)
+
+        for %{name: name} <- @adapter.metadata().variables do
+          assert Map.has_key?(event.context, name), "context has no #{inspect(name)}"
+        end
+      end
+
       test "source_key/0 is a snake_case atom" do
         key = @adapter.source_key()
         assert is_atom(key)

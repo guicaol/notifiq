@@ -34,6 +34,20 @@ defmodule NotifiqWeb.Format do
     end
   end
 
+  @doc """
+  An absolute moment, always in UTC and said so (Spec 011): `"30/10/2026 14:05 UTC"`. There
+  is no time zone per tenant yet, and a bare hour would be taken for local time.
+  """
+  @spec datetime(DateTime.t()) :: String.t()
+  def datetime(%DateTime{} = datetime) do
+    datetime |> DateTime.shift_zone!("Etc/UTC") |> Calendar.strftime("%d/%m/%Y %H:%M UTC")
+  end
+
+  @doc "A ledger amount with its sign: `3` is `\"+3\"`, `-1200` is `\"−1.200\"` (a real minus)."
+  @spec signed(integer()) :: String.t()
+  def signed(value) when is_integer(value) and value >= 0, do: "+" <> number(value)
+  def signed(value) when is_integer(value), do: "−" <> number(-value)
+
   @doc "Thousands separated with dots, the Brazilian way: `12345` is `\"12.345\"`."
   @spec number(integer()) :: String.t()
   def number(value) when is_integer(value) do

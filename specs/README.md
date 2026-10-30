@@ -31,22 +31,24 @@ equivalentes).
 | [006](006-nucleo-mensageria/spec.md) | Núcleo Mensageria: crédito e idempotência | 002, 004 | Implementada |
 | [007](007-worker-disparo/spec.md) | Worker de disparo, retentativas e backoff | 006 | Implementada — acionado pelo `EventWorker` desde a Spec 009 |
 | [008](008-multi-tenancy/spec.md) | Multi-tenancy: resolução do tenant e isolamento | 002, 006 | Implementada — plug de isolamento espera a autenticação |
-| [009](009-templates-mensagem/spec.md) | Templates de mensagem e ligação do pipeline | 007, 008 | Implementada — só SMS; sem tela para editar templates |
+| [009](009-templates-mensagem/spec.md) | Templates de mensagem e ligação do pipeline | 007, 008 | Implementada — só SMS; a tela de templates é da Spec 011 |
 | [010](010-autenticacao-painel/spec.md) | Autenticação e painel do lojista | 006, 008, 009 | Implementada — sem limitador de tentativas de login; contas criadas pelo operador |
+| [011](011-telas-templates-historico-extrato/spec.md) | Telas do lojista: templates, histórico de mensagens e extrato de créditos | 006, 009, 010 | Implementada — datas em UTC; sem lista de eventos recebidos |
 
 ## Próximas specs sugeridas (ainda não escritas)
 
 Seguindo a mesma granularidade, os próximos candidatos naturais, na ordem em que aparecem no
 plano de implementação:
 
-- **011** — Telas do lojista: templates (criar, editar, ativar, pré-visualizar), histórico
-  completo de mensagens e extrato de créditos.
-- **012** — Reprocessar eventos `insufficient_credits` depois de uma recarga (com prazo de
-  validade) e alertas de eventos que ficaram sem envio.
+- **012** — Eventos que não geraram envio: lista dos eventos recebidos (hoje o resumo só os
+  conta), reprocessar os `insufficient_credits` depois de uma recarga (com prazo de
+  validade) e alertas dos que ficaram sem envio.
 - **013** — WhatsApp: estender `OutboundMessage` com template aprovado (`ContentSid` +
   variáveis) e declarar `:whatsapp` no provider do Twilio (ver Spec 005).
 - **014** — OAuth do Bling: tokens por integração, **criptografados** (Constitution,
   princípio 6) — necessário para buscar o telefone do contato, que o webhook pode não trazer.
+- **015** — Limitador de tentativas de login e troca de senha pelo próprio lojista (pontos em
+  aberto da Spec 010); fuso horário por tenant (ponto em aberto da Spec 011).
 
 Cada uma deve seguir o mesmo formato: goal, user story, requisitos EARS, non-goals, edge
 cases, critérios de aceite, rastreabilidade ao backlog e à constitution.

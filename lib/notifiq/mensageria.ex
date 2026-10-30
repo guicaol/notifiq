@@ -426,6 +426,144 @@ defmodule Notifiq.Mensageria do
     )
   end
 
+  @page_size 25
+  @max_page_size 100
+
+  @typedoc "Where the next page of `page_message_logs/2` starts: the last row already shown."
+  @type log_cursor :: {DateTime.t(), Ecto.UUID.t()}
+
+  @typedoc "Where the next page of `page_credit_transactions/2` starts."
+  @type ledger_cursor :: {seq :: integer(), balance_after :: integer()}
+
+  @doc """
+  One page of the tenant's logs, newest first (Spec 011).
+
+  Options: `:statuses` (a list; default every status), `:cursor` (the one a previous call
+  returned) and `:limit` (default #{@page_size}, at most #{@max_page_size}). Returns the
+  rows and the cursor of the next page, or `nil` when this was the last one.
+
+  The cursor is the `(inserted_at, id)` of the last row, so a row is neither repeated nor
+  skipped when new ones arrive or when several share a timestamp. It is meant to be kept by
+  the server: it is not validated as input.
+  """
+  @spec page_message_logs(Ecto.UUID.t(), keyword()) :: {[MessageLog.t()], log_cursor() | nil}
+  def page_message_logs(tenant_id, opts \\ []) do
+    limit = page_limit(opts)
+
+    query =
+      from l in MessageLog,
+        where: l.tenant_id == ^tenant_id,
+        order_by: [desc: l.inserted_at, desc: l.id],
+        limit: ^(limit + 1)
+
+    query =
+      case Keyword.get(opts, :statuses) do
+        nil -> query
+        statuses when is_list(statuses) -> where(query, [l], l.status in ^statuses)
+      end
+
+    query =
+      case Keyword.get(opts, :cursor) do
+        nil ->
+          query
+
+        {%DateTime{} = inserted_at, id} when is_binary(id) ->
+          where(
+            query,
+            [l],
+            l.inserted_at < ^inserted_at or (l.inserted_at == ^inserted_at and l.id < ^id)
+          )
+      end
+
+    {page, rest} = query |> Repo.all() |> Enum.split(limit)
+
+    next =
+      case {rest, List.last(page)} do
+        {[_ | _], %MessageLog{} = last} -> {last.inserted_at, last.id}
+        _no_more -> nil
+      end
+
+    {page, next}
+  end
+
+  @doc """
+  One page of the tenant's ledger, newest first, each entry with the balance right after
+  it (Spec 011): `%{transaction: tx, balance_after: n}`.
+
+  The first page starts from the tenant's current balance, read in the same statement as
+  the entries, so the newest `balance_after` is the balance the tenant has. Each older
+  entry follows by subtracting the amount of the one above it, so the statement closes even
+  when a balance was set up without a ledger entry. Options and the returned cursor work as
+  in `page_message_logs/2`; the ledger is paged by its own `seq`, which never ties.
+  """
+  @spec page_credit_transactions(Ecto.UUID.t(), keyword()) ::
+          {[%{transaction: CreditTransaction.t(), balance_after: integer()}],
+           ledger_cursor() | nil}
+  def page_credit_transactions(tenant_id, opts \\ []) do
+    limit = page_limit(opts)
+
+    {rows, start_balance} =
+      case Keyword.get(opts, :cursor) do
+        nil ->
+          rows =
+            Repo.all(
+              from c in CreditTransaction,
+                join: t in Tenant,
+                on: t.id == c.tenant_id,
+                where: c.tenant_id == ^tenant_id,
+                order_by: [desc: c.seq],
+                limit: ^(limit + 1),
+                select: {c, t.credit_balance}
+            )
+
+          {Enum.map(rows, &elem(&1, 0)), rows |> List.first() |> start_balance()}
+
+        {seq, balance_after} when is_integer(seq) and is_integer(balance_after) ->
+          rows =
+            Repo.all(
+              from c in CreditTransaction,
+                where: c.tenant_id == ^tenant_id and c.seq < ^seq,
+                order_by: [desc: c.seq],
+                limit: ^(limit + 1)
+            )
+
+          {rows, balance_after}
+      end
+
+    {page, rest} = Enum.split(rows, limit)
+
+    {entries, balance_before_oldest} =
+      Enum.map_reduce(page, start_balance, fn transaction, balance_after ->
+        {%{transaction: transaction, balance_after: balance_after},
+         balance_after - transaction.amount}
+      end)
+
+    next =
+      case {rest, List.last(page)} do
+        {[_ | _], %CreditTransaction{} = last} -> {last.seq, balance_before_oldest}
+        _no_more -> nil
+      end
+
+    {entries, next}
+  end
+
+  defp start_balance(nil), do: 0
+  defp start_balance({_transaction, balance}), do: balance
+
+  defp page_limit(opts) do
+    opts |> Keyword.get(:limit, @page_size) |> max(1) |> min(@max_page_size)
+  end
+
+  @doc "The ledger entries of one log of the tenant (its debit and, if any, its refund), oldest first."
+  @spec list_credit_transactions_for_log(Ecto.UUID.t(), Ecto.UUID.t()) :: [CreditTransaction.t()]
+  def list_credit_transactions_for_log(tenant_id, message_log_id) do
+    Repo.all(
+      from c in CreditTransaction,
+        where: c.tenant_id == ^tenant_id and c.message_log_id == ^message_log_id,
+        order_by: [asc: c.seq]
+    )
+  end
+
   @doc "The tenant's ledger, newest first (by the ledger's own sequence, which never ties)."
   @spec list_credit_transactions(Ecto.UUID.t(), keyword()) :: [CreditTransaction.t()]
   def list_credit_transactions(tenant_id, opts \\ []) do

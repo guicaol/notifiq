@@ -25,10 +25,18 @@ defmodule Notifiq.Integrations.Registry do
   def sources, do: Application.get_env(:notifiq, :integration_sources, %{})
 
   @doc """
-  What the panel shows for each registered source (Spec 010), ordered by key: its key, its
-  name and the label of the account field, both taken from the adapter's `metadata/0`.
+  What the panel shows for each registered source (Spec 010), ordered by key: its key plus
+  everything the adapter's `metadata/0` says (name, account label and, since Spec 011, the
+  template variables its events carry).
   """
-  @spec describe_all() :: [%{key: String.t(), name: String.t(), account_label: String.t()}]
+  @spec describe_all() :: [
+          %{
+            key: String.t(),
+            name: String.t(),
+            account_label: String.t(),
+            variables: [%{name: String.t(), label: String.t(), example: String.t()}]
+          }
+        ]
   def describe_all do
     sources()
     |> Enum.sort_by(fn {key, _module} -> key end)
@@ -67,6 +75,32 @@ defmodule Notifiq.Integrations.Registry do
               "#{inspect(module.source_key())}, which does not match the registered key"
     end
 
-    :ok
+    validate_metadata!(key, module)
   end
+
+  # The panel reads these on every page of the templates screen; a missing key would only
+  # surface there, as a crash for the merchant (Spec 011).
+  defp validate_metadata!(key, module) do
+    case module.metadata() do
+      %{name: name, account_label: label, variables: variables}
+      when is_binary(name) and is_binary(label) and is_list(variables) ->
+        if Enum.all?(variables, &valid_variable?/1) do
+          :ok
+        else
+          raise ArgumentError,
+                "integration source #{inspect(key)}: #{inspect(module)}.metadata/0 has a " <>
+                  "malformed entry in :variables (expected %{name:, label:, example:} strings)"
+        end
+
+      other ->
+        raise ArgumentError,
+              "integration source #{inspect(key)}: #{inspect(module)}.metadata/0 returns " <>
+                "#{inspect(other)}; expected a map with :name, :account_label and :variables"
+    end
+  end
+
+  defp valid_variable?(%{name: name, label: label, example: example}),
+    do: is_binary(name) and is_binary(label) and is_binary(example)
+
+  defp valid_variable?(_other), do: false
 end

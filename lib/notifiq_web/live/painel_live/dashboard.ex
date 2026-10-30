@@ -8,6 +8,8 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
 
   use NotifiqWeb, :live_view
 
+  import NotifiqWeb.PainelComponents
+
   alias Notifiq.Accounts.Scope
   alias Notifiq.Mensageria
   alias NotifiqWeb.Format
@@ -25,13 +27,8 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
     {"skipped_no_template", "Sem template", "Não há template ativo para esse tipo de evento."}
   ]
 
-  @status_labels %{
-    "sent" => {"Enviada", :ok},
-    "pending" => {"Na fila", :neutral},
-    "uncertain" => {"Verificando", :neutral},
-    "failed" => {"Falhou", :error},
-    "unconfirmed" => {"Sem confirmação", :warn}
-  }
+  # Where the merchant can fix what a problem says, when there is such a place (Spec 011).
+  @problem_paths %{"skipped_no_template" => "/painel/templates"}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -46,7 +43,13 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
       for {status, title, hint} <- @problem_events,
           count = Map.get(events, status, 0),
           count > 0 do
-        %{status: status, title: title, hint: hint, count: count}
+        %{
+          status: status,
+          title: title,
+          hint: hint,
+          count: count,
+          path: Map.get(@problem_paths, status)
+        }
       end
 
     sent = Map.get(logs, "sent", 0)
@@ -106,6 +109,13 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
               <p class="mt-3 max-w-xs text-sm text-white/60">
                 créditos disponíveis. Cada mensagem enviada usa o custo do seu template.
               </p>
+              <.link
+                id="link-creditos"
+                navigate={~p"/painel/creditos"}
+                class="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-volt transition hover:translate-x-0.5"
+              >
+                Ver extrato <.icon name="hero-arrow-right-micro" class="size-4" />
+              </.link>
             </div>
           </div>
 
@@ -130,6 +140,8 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
             value={Format.number(@failed)}
             icon="hero-exclamation-triangle"
             tone={if(@failed > 0, do: :alert)}
+            link={if(@failed > 0, do: ~p"/painel/mensagens?#{[situacao: "failed"]}")}
+            link_id="link-failed"
           />
           <.stat
             id="stat-rate"
@@ -197,6 +209,14 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
               <div>
                 <p class="text-sm font-semibold">{problem.title}</p>
                 <p class="mt-0.5 text-[13px] text-ink-2">{problem.hint}</p>
+                <.link
+                  :if={problem.path}
+                  id={"problem-link-#{problem.status}"}
+                  navigate={problem.path}
+                  class="mt-1.5 inline-flex items-center gap-1 text-[13px] font-medium text-brand hover:underline"
+                >
+                  Ir para os templates <.icon name="hero-arrow-right-micro" class="size-3.5" />
+                </.link>
               </div>
               <span class="rounded-md bg-warn-soft px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-warn">
                 {Format.number(problem.count)}
@@ -208,7 +228,16 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
         <section id="recent" class="reveal space-y-3" style="--i: 8">
           <div class="flex items-baseline justify-between">
             <h2 class="text-sm font-semibold">Mensagens recentes</h2>
-            <p class="font-mono text-xs text-ink-3">últimas {@recent_limit}</p>
+            <p class="flex items-center gap-4 font-mono text-xs text-ink-3">
+              últimas {@recent_limit}
+              <.link
+                id="link-mensagens"
+                navigate={~p"/painel/mensagens"}
+                class="font-sans text-sm font-medium text-brand hover:underline"
+              >
+                Ver todas
+              </.link>
+            </p>
           </div>
 
           <div class="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
@@ -267,6 +296,8 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
   attr :icon, :string, required: true
   attr :index, :integer, default: 0
   attr :tone, :atom, default: nil
+  attr :link, :string, default: nil
+  attr :link_id, :string, default: nil
 
   defp stat(assigns) do
     ~H"""
@@ -297,37 +328,15 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
         />
       </div>
       <p class="mt-6 font-mono text-3xl font-semibold tabular-nums tracking-tight">{@value}</p>
+      <.link
+        :if={@link}
+        id={@link_id}
+        navigate={@link}
+        class="mt-2 inline-flex items-center gap-1 text-[13px] font-medium text-bad hover:underline"
+      >
+        Ver mensagens <.icon name="hero-arrow-right-micro" class="size-3.5" />
+      </.link>
     </div>
-    """
-  end
-
-  attr :status, :string, required: true
-
-  defp status_badge(assigns) do
-    {label, tone} = Map.get(@status_labels, assigns.status, {assigns.status, :neutral})
-    assigns = assign(assigns, label: label, tone: tone)
-
-    ~H"""
-    <span class={[
-      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-      case @tone do
-        :ok -> "bg-ok-soft text-ok"
-        :error -> "bg-bad-soft text-bad"
-        :warn -> "bg-warn-soft text-warn"
-        _neutral -> "bg-surface-2 text-ink-2 ring-1 ring-line"
-      end
-    ]}>
-      <span class={[
-        "size-1.5 rounded-full",
-        case @tone do
-          :ok -> "bg-ok"
-          :error -> "bg-bad"
-          :warn -> "bg-warn"
-          _neutral -> "bg-ink-3"
-        end
-      ]} />
-      {@label}
-    </span>
     """
   end
 end

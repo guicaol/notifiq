@@ -16,7 +16,16 @@ defmodule Notifiq.Test.FakeSource do
   def source_key, do: :fake
 
   @impl true
-  def metadata, do: %{name: "Fonte Fake", account_label: "Conta da fonte fake"}
+  def metadata do
+    %{
+      name: "Fonte Fake",
+      account_label: "Conta da fonte fake",
+      variables: [
+        %{name: "numero_pedido", label: "Número do pedido", example: "1234"},
+        %{name: "nome_cliente", label: "Nome do cliente", example: "Maria da Silva"}
+      ]
+    }
+  end
 
   @impl true
   def verify_authenticity(conn, _credentials) do
@@ -56,7 +65,7 @@ defmodule Notifiq.Test.FakeSource do
        external_event_id: extract_event_id(payload),
        event_type: "order_created",
        recipient: %{name: payload["name"], phone: "+5511999998888"},
-       context: %{"numero_pedido" => payload["order"]},
+       context: %{"numero_pedido" => payload["order"], "nome_cliente" => payload["name"]},
        raw: payload
      }}
   end
