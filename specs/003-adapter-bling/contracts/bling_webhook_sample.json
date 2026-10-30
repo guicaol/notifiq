@@ -1,0 +1,24 @@
+{
+  "_comment": "O ENVELOPE (eventId, date, version, event, companyId, data) vem da documentação oficial do Bling (developer.bling.com.br/webhooks). O CONTEÚDO DE 'data' NÃO está documentado: a estrutura abaixo (numero, situacao.id, contato.telefone) é uma SUPOSIÇÃO a validar com uma entrega real. Ver spec 003.",
+
+  "eventId": "01968b2c-7c1e-7e4a-9d11-3b9f4f0a1234",
+  "date": "2026-07-02T14:32:00-03:00",
+  "version": "v1",
+  "event": "order.updated",
+  "companyId": "12345678901234567890123456789012",
+  "data": {
+    "id": 16543210987,
+    "numero": 1234,
+    "numeroLoja": "PED-1234",
+    "totalProdutos": 259.90,
+    "situacao": {
+      "id": 9,
+      "valor": 1
+    },
+    "contato": {
+      "id": 987654321,
+      "nome": "Maria da Silva",
+      "telefone": "11999998888"
+    }
+  }
+}
