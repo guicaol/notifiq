@@ -7,7 +7,14 @@ defmodule Notifiq.Integrations.Registry do
   `"bling"` are different sources; normalising case is the configurer's job.
   """
 
-  @required_callbacks [source_key: 0, verify_authenticity: 2, extract_event_id: 1, parse: 1]
+  @required_callbacks [
+    source_key: 0,
+    verify_authenticity: 2,
+    extract_event_id: 1,
+    extract_account_id: 1,
+    metadata: 0,
+    parse: 1
+  ]
 
   @doc "Returns the adapter module registered for `source_key`."
   @spec fetch(String.t()) :: {:ok, module()} | :error
@@ -16,6 +23,17 @@ defmodule Notifiq.Integrations.Registry do
   @doc "All registered sources as a `source_key => module` map."
   @spec sources() :: %{optional(String.t()) => module()}
   def sources, do: Application.get_env(:notifiq, :integration_sources, %{})
+
+  @doc """
+  What the panel shows for each registered source (Spec 010), ordered by key: its key, its
+  name and the label of the account field, both taken from the adapter's `metadata/0`.
+  """
+  @spec describe_all() :: [%{key: String.t(), name: String.t(), account_label: String.t()}]
+  def describe_all do
+    sources()
+    |> Enum.sort_by(fn {key, _module} -> key end)
+    |> Enum.map(fn {key, module} -> Map.put(module.metadata(), :key, key) end)
+  end
 
   @doc """
   Checks every configured adapter and raises when one is unusable, so a broken

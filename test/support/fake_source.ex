@@ -16,6 +16,9 @@ defmodule Notifiq.Test.FakeSource do
   def source_key, do: :fake
 
   @impl true
+  def metadata, do: %{name: "Fonte Fake", account_label: "Conta da fonte fake"}
+
+  @impl true
   def verify_authenticity(conn, _credentials) do
     case Plug.Conn.get_req_header(conn, "x-fake-sleep") do
       [ms] -> ms |> String.to_integer() |> Process.sleep()

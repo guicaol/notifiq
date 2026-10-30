@@ -118,6 +118,7 @@ dos arquivos de contrato — eles são a fonte executável.
   variáveis de ambiente — nunca no código-fonte.
 - **Worker:** `Notifiq.Mensageria.EventWorker` apenas carrega o evento; crédito e disparo
   são das specs 006/007.
+- **Spec 010:** o `Source` ganhou um sexto callback, `metadata/0` (nome e rótulo da conta para o painel), exigido também pelo `Registry.validate!/0`.
 - **Spec 008:** o `Source` ganhou um quinto callback, `extract_account_id/1`, e o evento
   gravado passa a ter `tenant_id` (resolvido pela integração, nunca pelo adapter). Um webhook
   assinado de conta sem integração responde 200 `unknown_account`.

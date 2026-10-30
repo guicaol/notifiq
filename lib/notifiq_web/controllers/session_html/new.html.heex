@@ -1,0 +1,42 @@
+<Layouts.app flash={@flash} current_scope={@current_scope}>
+  <div class="mx-auto w-full max-w-sm">
+    <div class="mb-8 text-center">
+      <h1 class="text-2xl font-semibold tracking-tight">Entrar no Notifiq</h1>
+      <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+        Acesse o painel da sua loja.
+      </p>
+    </div>
+
+    <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <.form for={@form} id="login-form" action={~p"/entrar"} class="space-y-4">
+        <.input
+          field={@form[:email]}
+          type="email"
+          label="E-mail"
+          autocomplete="username"
+          spellcheck="false"
+          required
+        />
+        <.input
+          field={@form[:password]}
+          type="password"
+          label="Senha"
+          autocomplete="current-password"
+          required
+        />
+
+        <button
+          type="submit"
+          id="login-submit"
+          class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 active:scale-[0.99] phx-submit-loading:opacity-70"
+        >
+          Entrar <.icon name="hero-arrow-right-micro" class="size-4" />
+        </button>
+      </.form>
+    </div>
+
+    <p class="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
+      Ainda não tem acesso? Fale com quem administra a plataforma.
+    </p>
+  </div>
+</Layouts.app>

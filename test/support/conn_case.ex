@@ -35,4 +35,13 @@ defmodule NotifiqWeb.ConnCase do
     Notifiq.DataCase.setup_sandbox(tags)
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end
+
+  @doc "Puts a fresh session for `user` in the conn, as a login would (Spec 010)."
+  def log_in(conn, user) do
+    token = Notifiq.Test.AccountsHelpers.session_token!(user)
+
+    conn
+    |> Phoenix.ConnTest.init_test_session(%{})
+    |> Plug.Conn.put_session(:user_token, token)
+  end
 end

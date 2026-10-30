@@ -9,6 +9,9 @@ defmodule Notifiq.Test.OtherFakeSource do
   def source_key, do: :other_fake
 
   @impl true
+  def metadata, do: %{name: "Outra Fonte Fake", account_label: "Conta da outra fonte"}
+
+  @impl true
   def verify_authenticity(_conn, _credentials), do: :ok
 
   @impl true

@@ -1,6 +1,8 @@
 defmodule NotifiqWeb.Router do
   use NotifiqWeb, :router
 
+  import NotifiqWeb.UserAuth
+
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
@@ -8,6 +10,7 @@ defmodule NotifiqWeb.Router do
     plug :put_root_layout, html: {NotifiqWeb.Layouts, :root}
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :fetch_current_scope
   end
 
   pipeline :api do
@@ -18,6 +21,24 @@ defmodule NotifiqWeb.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+    delete "/sair", SessionController, :delete
+  end
+
+  scope "/", NotifiqWeb do
+    pipe_through [:browser, :redirect_if_authenticated]
+
+    get "/entrar", SessionController, :new
+    post "/entrar", SessionController, :create
+  end
+
+  # Everything here belongs to the tenant of `current_scope` (Spec 010).
+  scope "/", NotifiqWeb do
+    pipe_through [:browser, :require_authenticated]
+
+    live_session :authenticated, on_mount: [{NotifiqWeb.UserAuth, :require_authenticated}] do
+      live "/painel", PainelLive.Dashboard, :index
+      live "/painel/integracoes", PainelLive.Integracoes, :index
+    end
   end
 
   scope "/", NotifiqWeb do

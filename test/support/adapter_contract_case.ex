@@ -58,10 +58,18 @@ defmodule Notifiq.Integrations.AdapterContractCase do
               verify_authenticity: 2,
               extract_event_id: 1,
               extract_account_id: 1,
+              metadata: 0,
               parse: 1
             ] do
           assert function_exported?(@adapter, fun, arity), "missing #{fun}/#{arity}"
         end
+      end
+
+      test "metadata/0 names the source and its account field for the panel (Spec 010)" do
+        assert %{name: name, account_label: label} = @adapter.metadata()
+        assert is_binary(name) and String.trim(name) != ""
+        assert is_binary(label) and String.trim(label) != ""
+        assert @adapter.metadata() == @adapter.metadata()
       end
 
       test "source_key/0 is a snake_case atom" do

@@ -13,6 +13,9 @@ config :notifiq, Notifiq.Repo,
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2
 
+# Cheap password hashing so the suite stays fast (Spec 010); real rounds in every other env.
+config :pbkdf2_elixir, :rounds, 1
+
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
 config :notifiq, NotifiqWeb.Endpoint,

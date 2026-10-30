@@ -34,4 +34,27 @@ defmodule Notifiq.Integrations.RegistryTest do
     Application.put_env(:notifiq, :integration_sources, %{"wrong" => Notifiq.Test.FakeSource})
     assert_raise ArgumentError, ~r/does not match the registered key/, &Registry.validate!/0
   end
+
+  test "validate!/0 raises for an adapter without metadata/0 (Spec 010, AC-13)" do
+    Application.put_env(:notifiq, :integration_sources, %{
+      "no_metadata" => Notifiq.Test.NoMetadataSource
+    })
+
+    assert_raise ArgumentError, ~r/does not implement.*metadata/, &Registry.validate!/0
+  end
+
+  test "describe_all/0 lists every source with the name and label its adapter gives" do
+    assert [
+             %{key: "bling", name: "Bling", account_label: bling_label},
+             %{key: "fake", name: "Fonte Fake"},
+             %{key: "other_fake", name: "Outra Fonte Fake"}
+           ] = Registry.describe_all()
+
+    assert bling_label =~ "companyId"
+  end
+
+  test "describe_all/0 is empty without sources" do
+    Application.put_env(:notifiq, :integration_sources, %{})
+    assert Registry.describe_all() == []
+  end
 end

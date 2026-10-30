@@ -491,6 +491,36 @@ defmodule Notifiq.Mensageria do
   end
 
   @doc """
+  How many of the tenant's message logs were created at or after `since`, by status
+  (Spec 010). Statuses with no logs are absent from the map.
+  """
+  @spec count_message_logs_by_status(Ecto.UUID.t(), DateTime.t()) :: %{String.t() => integer()}
+  def count_message_logs_by_status(tenant_id, %DateTime{} = since) do
+    Repo.all(
+      from l in MessageLog,
+        where: l.tenant_id == ^tenant_id and l.inserted_at >= ^since,
+        group_by: l.status,
+        select: {l.status, count(l.id)}
+    )
+    |> Map.new()
+  end
+
+  @doc """
+  How many of the tenant's events were received at or after `since`, by what became of
+  them (Spec 010).
+  """
+  @spec count_webhook_events_by_status(Ecto.UUID.t(), DateTime.t()) :: %{String.t() => integer()}
+  def count_webhook_events_by_status(tenant_id, %DateTime{} = since) do
+    Repo.all(
+      from e in WebhookEvent,
+        where: e.tenant_id == ^tenant_id and e.inserted_at >= ^since,
+        group_by: e.status,
+        select: {e.status, count(e.id)}
+    )
+    |> Map.new()
+  end
+
+  @doc """
   Records what became of a received event (Spec 009). It only moves an event out of
   `received`, so a repeated run of the worker can't overwrite an earlier outcome, and it
   only touches the tenant's own events.

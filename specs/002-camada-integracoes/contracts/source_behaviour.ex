@@ -68,6 +68,14 @@ defmodule Notifiq.Integrations.Source do
   @callback extract_account_id(raw_payload()) :: {:ok, String.t()} | :error
 
   @doc """
+  Como a fonte aparece para o lojista no painel (spec 010): `name` é o nome da fonte e
+  `account_label` o rótulo do campo em que ele informa o identificador da conta (o mesmo
+  valor que `extract_account_id/1` extrai dos webhooks). É constante e puro; as telas do
+  painel usam isto em vez de citar qualquer fonte pelo nome.
+  """
+  @callback metadata() :: %{name: String.t(), account_label: String.t()}
+
+  @doc """
   Traduz o payload bruto da fonte para o formato canônico interno, ou sinaliza que
   o evento deve ser ignorado (evento de um tipo que não gera notificação).
 
