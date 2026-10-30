@@ -49,15 +49,25 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
         %{status: status, title: title, hint: hint, count: count}
       end
 
+    sent = Map.get(logs, "sent", 0)
+    in_progress = Map.get(logs, "pending", 0) + Map.get(logs, "uncertain", 0)
+    failed = Map.get(logs, "failed", 0) + Map.get(logs, "unconfirmed", 0)
+
+    # Share of the finished sends that arrived; nothing to say until one has finished.
+    rate = if sent + failed > 0, do: round(sent * 100 / (sent + failed))
+
     socket =
       socket
       |> assign(:page_title, "Resumo")
       |> assign(:now, now)
       |> assign(:window_days, @window_days)
+      |> assign(:recent_limit, @recent_limit)
       |> assign(:balance, Mensageria.credit_balance(tenant_id))
-      |> assign(:sent, Map.get(logs, "sent", 0))
-      |> assign(:in_progress, Map.get(logs, "pending", 0) + Map.get(logs, "uncertain", 0))
-      |> assign(:failed, Map.get(logs, "failed", 0) + Map.get(logs, "unconfirmed", 0))
+      |> assign(:sent, sent)
+      |> assign(:in_progress, in_progress)
+      |> assign(:failed, failed)
+      |> assign(:total, sent + in_progress + failed)
+      |> assign(:rate, rate)
       |> assign(:problems, problems)
       |> stream(:messages, Mensageria.list_message_logs(tenant_id, limit: @recent_limit))
 
@@ -68,52 +78,108 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} active={:resumo}>
-      <div class="space-y-8">
-        <header>
-          <h1 class="text-2xl font-semibold tracking-tight">Resumo</h1>
-          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Os últimos {@window_days} dias da sua loja.
-          </p>
-        </header>
+      <Layouts.page_header caption={"Painel / Resumo / #{@window_days} dias"} title="Resumo">
+        Como a loja {@current_scope.tenant.name} enviou mensagens nos últimos {@window_days} dias.
+      </Layouts.page_header>
 
-        <section id="stats" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <.stat
+      <div class="space-y-8 lg:space-y-10">
+        <section id="stats" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div
             id="stat-balance"
-            label="Saldo de créditos"
-            value={Format.number(@balance)}
-            icon="hero-banknotes"
-            tone={:brand}
-          />
+            class="reveal tex-grid relative flex flex-col justify-between overflow-hidden rounded-2xl bg-hero p-6 text-hero-text shadow-card sm:col-span-2 lg:row-span-2 lg:p-8"
+            style="--i: 1"
+          >
+            <div
+              class="pointer-events-none absolute -right-16 -top-16 size-64 rounded-full opacity-30 blur-3xl"
+              style="background: radial-gradient(circle, #c8f169 0%, transparent 70%)"
+            />
+            <div class="relative flex items-center justify-between">
+              <p class="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-white/60">
+                Saldo de créditos
+              </p>
+              <.icon name="hero-banknotes" class="size-5 text-volt" />
+            </div>
+            <div class="relative mt-10">
+              <p class="font-mono text-6xl font-semibold tabular-nums tracking-tighter text-volt sm:text-7xl">
+                {Format.number(@balance)}
+              </p>
+              <p class="mt-3 max-w-xs text-sm text-white/60">
+                créditos disponíveis. Cada mensagem enviada usa o custo do seu template.
+              </p>
+            </div>
+          </div>
+
           <.stat
             id="stat-sent"
-            label="Mensagens enviadas"
+            index={2}
+            label="Enviadas"
             value={Format.number(@sent)}
             icon="hero-paper-airplane"
           />
           <.stat
             id="stat-in-progress"
+            index={3}
             label="Em andamento"
             value={Format.number(@in_progress)}
             icon="hero-clock"
           />
           <.stat
             id="stat-failed"
+            index={4}
             label="Falhas ou sem confirmação"
             value={Format.number(@failed)}
             icon="hero-exclamation-triangle"
             tone={if(@failed > 0, do: :alert)}
           />
+          <.stat
+            id="stat-rate"
+            index={5}
+            label="Taxa de entrega"
+            value={if(@rate, do: "#{@rate}%", else: "—")}
+            icon="hero-check-badge"
+            tone={if(@rate && @rate >= 95, do: :good)}
+          />
         </section>
 
-        <section id="attention" class="space-y-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Eventos que não geraram envio
-          </h2>
+        <section
+          id="distribution"
+          class="reveal rounded-2xl border border-line bg-surface p-5 shadow-card sm:p-6"
+          style="--i: 6"
+        >
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-sm font-semibold">Situação dos envios</h2>
+            <p class="font-mono text-xs text-ink-3">{Format.number(@total)} no período</p>
+          </div>
+
+          <div
+            :if={@total > 0}
+            class="mt-4 flex h-2.5 w-full overflow-hidden rounded-full bg-surface-2"
+            role="img"
+            aria-label="Proporção de mensagens enviadas, em andamento e com falha"
+          >
+            <div class="bg-ok" style={"width: #{share(@sent, @total)}%"} />
+            <div class="bg-brand" style={"width: #{share(@in_progress, @total)}%"} />
+            <div class="bg-bad" style={"width: #{share(@failed, @total)}%"} />
+          </div>
+          <div :if={@total == 0} class="mt-4 h-2.5 w-full rounded-full bg-surface-2" />
+
+          <div class="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-ink-2">
+            <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-ok"></span>
+            Enviadas</span>
+            <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-brand"></span>
+            Em andamento</span>
+            <span class="flex items-center gap-2"><span class="size-2 rounded-full bg-bad"></span>
+            Falhas</span>
+          </div>
+        </section>
+
+        <section id="attention" class="reveal space-y-3" style="--i: 7">
+          <h2 class="text-sm font-semibold">Eventos que não geraram envio</h2>
 
           <div
             :if={@problems == []}
             id="attention-empty"
-            class="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-200"
+            class="flex items-center gap-3 rounded-xl border border-line bg-ok-soft px-4 py-3.5 text-sm text-ok"
           >
             <.icon name="hero-check-circle" class="size-5 shrink-0" />
             Nenhum evento ficou sem envio nos últimos {@window_days} dias.
@@ -121,59 +187,64 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
 
           <ul
             :if={@problems != []}
-            class="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-amber-200 bg-white dark:divide-zinc-800 dark:border-amber-500/30 dark:bg-zinc-900"
+            class="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface shadow-card"
           >
             <li
               :for={problem <- @problems}
               id={"problem-#{problem.status}"}
-              class="flex items-start justify-between gap-4 px-4 py-3"
+              class="flex items-start justify-between gap-4 border-l-[3px] border-l-warn px-4 py-3.5"
             >
               <div>
-                <p class="text-sm font-medium">{problem.title}</p>
-                <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{problem.hint}</p>
+                <p class="text-sm font-semibold">{problem.title}</p>
+                <p class="mt-0.5 text-[13px] text-ink-2">{problem.hint}</p>
               </div>
-              <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-semibold tabular-nums text-amber-800 dark:bg-amber-500/15 dark:text-amber-200">
+              <span class="rounded-md bg-warn-soft px-2.5 py-1 font-mono text-sm font-semibold tabular-nums text-warn">
                 {Format.number(problem.count)}
               </span>
             </li>
           </ul>
         </section>
 
-        <section id="recent" class="space-y-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Mensagens recentes
-          </h2>
+        <section id="recent" class="reveal space-y-3" style="--i: 8">
+          <div class="flex items-baseline justify-between">
+            <h2 class="text-sm font-semibold">Mensagens recentes</h2>
+            <p class="font-mono text-xs text-ink-3">últimas {@recent_limit}</p>
+          </div>
 
-          <div class="overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+          <div class="overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
             <table class="w-full text-left text-sm">
-              <thead class="border-b border-zinc-200 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
+              <thead class="border-b border-line bg-surface-2 font-mono text-[10.5px] uppercase tracking-[0.14em] text-ink-3">
                 <tr>
-                  <th scope="col" class="px-4 py-2.5 font-medium">Cliente</th>
-                  <th scope="col" class="hidden px-4 py-2.5 font-medium sm:table-cell">Canal</th>
-                  <th scope="col" class="px-4 py-2.5 font-medium">Situação</th>
-                  <th scope="col" class="px-4 py-2.5 text-right font-medium">Quando</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Cliente</th>
+                  <th scope="col" class="hidden px-5 py-3 font-medium sm:table-cell">Canal</th>
+                  <th scope="col" class="px-5 py-3 font-medium">Situação</th>
+                  <th scope="col" class="px-5 py-3 text-right font-medium">Quando</th>
                 </tr>
               </thead>
-              <tbody
-                id="messages"
-                phx-update="stream"
-                class="divide-y divide-zinc-100 dark:divide-zinc-800"
-              >
+              <tbody id="messages" phx-update="stream" class="divide-y divide-line">
                 <tr id="messages-empty" class="hidden only:table-row">
-                  <td
-                    colspan="4"
-                    class="px-4 py-10 text-center text-sm text-zinc-500 dark:text-zinc-400"
-                  >
-                    Nenhuma mensagem enviada ainda. Quando um pedido chegar de uma conta conectada, com um template ativo, a mensagem aparece aqui.
+                  <td colspan="4" class="px-5 py-14 text-center">
+                    <.icon name="hero-inbox" class="mx-auto size-7 text-ink-3" />
+                    <p class="mx-auto mt-3 max-w-sm text-sm text-ink-2">
+                      Nenhuma mensagem ainda. Quando um pedido chegar de uma conta conectada, com um template ativo, a mensagem aparece aqui.
+                    </p>
                   </td>
                 </tr>
-                <tr :for={{id, log} <- @streams.messages} id={id}>
-                  <td class="px-4 py-3 font-mono text-xs">{Format.mask_phone(log.recipient)}</td>
-                  <td class="hidden px-4 py-3 uppercase text-zinc-500 sm:table-cell dark:text-zinc-400">
-                    {log.channel}
+                <tr
+                  :for={{id, log} <- @streams.messages}
+                  id={id}
+                  class="transition-colors hover:bg-surface-2"
+                >
+                  <td class="px-5 py-3.5 font-mono text-[13px]">
+                    {Format.mask_phone(log.recipient)}
                   </td>
-                  <td class="px-4 py-3"><.status_badge status={log.status} /></td>
-                  <td class="px-4 py-3 text-right text-zinc-500 dark:text-zinc-400">
+                  <td class="hidden px-5 py-3.5 sm:table-cell">
+                    <span class="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] font-medium uppercase text-ink-2 ring-1 ring-line">
+                      {log.channel}
+                    </span>
+                  </td>
+                  <td class="px-5 py-3.5"><.status_badge status={log.status} /></td>
+                  <td class="px-5 py-3.5 text-right text-ink-2">
                     {Format.relative_time(log.inserted_at, @now)}
                   </td>
                 </tr>
@@ -186,10 +257,15 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
     """
   end
 
+  # How much of the bar a part takes, with a decimal so small parts stay visible.
+  defp share(_part, 0), do: 0
+  defp share(part, total), do: Float.round(part * 100 / total, 1)
+
   attr :id, :string, required: true
   attr :label, :string, required: true
   attr :value, :string, required: true
   attr :icon, :string, required: true
+  attr :index, :integer, default: 0
   attr :tone, :atom, default: nil
 
   defp stat(assigns) do
@@ -197,24 +273,30 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
     <div
       id={@id}
       class={[
-        "rounded-xl border p-4 shadow-sm transition-shadow hover:shadow-md",
+        "reveal flex flex-col justify-between rounded-2xl border p-5 shadow-card transition duration-300 hover:-translate-y-0.5",
         case @tone do
-          :brand ->
-            "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10"
-
-          :alert ->
-            "border-red-200 bg-red-50 dark:border-red-500/30 dark:bg-red-500/10"
-
-          _other ->
-            "border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900"
+          :alert -> "border-bad/30 bg-bad-soft"
+          :good -> "border-ok/30 bg-ok-soft"
+          _other -> "border-line bg-surface"
         end
       ]}
+      style={"--i: #{@index}"}
     >
-      <div class="flex items-center justify-between text-zinc-500 dark:text-zinc-400">
-        <p class="text-xs font-medium">{@label}</p>
-        <.icon name={@icon} class="size-4" />
+      <div class="flex items-start justify-between gap-3">
+        <p class="text-[13px] font-medium text-ink-2">{@label}</p>
+        <.icon
+          name={@icon}
+          class={[
+            "size-[18px] shrink-0",
+            case @tone do
+              :alert -> "text-bad"
+              :good -> "text-ok"
+              _other -> "text-ink-3"
+            end
+          ]}
+        />
       </div>
-      <p class="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{@value}</p>
+      <p class="mt-6 font-mono text-3xl font-semibold tabular-nums tracking-tight">{@value}</p>
     </div>
     """
   end
@@ -227,14 +309,23 @@ defmodule NotifiqWeb.PainelLive.Dashboard do
 
     ~H"""
     <span class={[
-      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
       case @tone do
-        :ok -> "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300"
-        :error -> "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300"
-        :warn -> "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-200"
-        _neutral -> "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+        :ok -> "bg-ok-soft text-ok"
+        :error -> "bg-bad-soft text-bad"
+        :warn -> "bg-warn-soft text-warn"
+        _neutral -> "bg-surface-2 text-ink-2 ring-1 ring-line"
       end
     ]}>
+      <span class={[
+        "size-1.5 rounded-full",
+        case @tone do
+          :ok -> "bg-ok"
+          :error -> "bg-bad"
+          :warn -> "bg-warn"
+          _neutral -> "bg-ink-3"
+        end
+      ]} />
       {@label}
     </span>
     """

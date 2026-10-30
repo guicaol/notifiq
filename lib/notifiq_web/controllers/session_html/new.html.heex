@@ -1,42 +1,126 @@
 <Layouts.app flash={@flash} current_scope={@current_scope}>
-  <div class="mx-auto w-full max-w-sm">
-    <div class="mb-8 text-center">
-      <h1 class="text-2xl font-semibold tracking-tight">Entrar no Notifiq</h1>
-      <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-        Acesse o painel da sua loja.
-      </p>
-    </div>
+  <div class="grid min-h-dvh lg:grid-cols-[1.15fr_1fr]">
+    <%!-- The brand side: only on wide screens, purely decorative. --%>
+    <section
+      class="tex-grid relative hidden flex-col justify-between overflow-hidden bg-chrome p-12 text-white lg:flex xl:p-16"
+      aria-hidden="true"
+    >
+      <div
+        class="pointer-events-none absolute -right-32 -top-32 size-[28rem] rounded-full opacity-40 blur-3xl"
+        style="background: radial-gradient(circle, #2438e0 0%, transparent 70%)"
+      />
+      <div
+        class="pointer-events-none absolute -bottom-40 -left-24 size-[26rem] rounded-full opacity-25 blur-3xl"
+        style="background: radial-gradient(circle, #c8f169 0%, transparent 70%)"
+      />
 
-    <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-      <.form for={@form} id="login-form" action={~p"/entrar"} class="space-y-4">
-        <.input
-          field={@form[:email]}
-          type="email"
-          label="E-mail"
-          autocomplete="username"
-          spellcheck="false"
-          required
-        />
-        <.input
-          field={@form[:password]}
-          type="password"
-          label="Senha"
-          autocomplete="current-password"
-          required
-        />
+      <div class="relative flex items-center gap-3">
+        <span class="flex size-9 items-center justify-center rounded-lg bg-volt text-[#0c1222]">
+          <.icon name="hero-bell-alert-solid" class="size-5" />
+        </span>
+        <span class="text-xl font-bold tracking-tight">Notifiq</span>
+      </div>
 
-        <button
-          type="submit"
-          id="login-submit"
-          class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 active:scale-[0.99] phx-submit-loading:opacity-70"
+      <div class="relative max-w-xl">
+        <p
+          class="reveal font-mono text-[11px] uppercase tracking-[0.24em] text-volt"
+          style="--i: 1"
         >
-          Entrar <.icon name="hero-arrow-right-micro" class="size-4" />
-        </button>
-      </.form>
-    </div>
+          Mensageria orientada a eventos
+        </p>
+        <h2
+          class="reveal mt-5 text-5xl font-bold leading-[1.05] tracking-tight xl:text-6xl"
+          style="--i: 2"
+        >
+          Cada pedido vira uma mensagem, <span class="text-volt">no minuto certo.</span>
+        </h2>
+        <p class="reveal mt-6 max-w-md text-[15px] leading-relaxed text-white/60" style="--i: 3">
+          Conecte a sua loja, escolha o texto e acompanhe cada envio, com o saldo sempre à vista.
+        </p>
+      </div>
 
-    <p class="mt-6 text-center text-xs text-zinc-500 dark:text-zinc-400">
-      Ainda não tem acesso? Fale com quem administra a plataforma.
-    </p>
+      <div class="relative h-56">
+        <div
+          class="float-slow absolute left-0 top-0 w-80 rounded-xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur"
+          style="--i: 4"
+        >
+          <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-white/50">
+            <span>SMS · +55 ••••• 8420</span>
+            <span class="flex items-center gap-1.5 text-volt">
+              <span class="size-1.5 rounded-full bg-volt"></span> enviada
+            </span>
+          </div>
+          <p class="mt-3 text-sm leading-snug text-white/90">
+            Olá Maria, seu pedido 4321 foi faturado e já está a caminho.
+          </p>
+        </div>
+
+        <div
+          class="float-slow-2 absolute left-28 top-24 w-80 rounded-xl border border-white/10 bg-white/[0.06] p-4 backdrop-blur"
+          style="--i: 5"
+        >
+          <div class="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-white/50">
+            <span>SMS · +55 ••••• 1173</span>
+            <span class="flex items-center gap-1.5 text-white/70">
+              <span class="size-1.5 rounded-full bg-white/50"></span> na fila
+            </span>
+          </div>
+          <p class="mt-3 text-sm leading-snug text-white/90">
+            João, seu pedido 4322 saiu para entrega. Acompanhe pelo link.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="flex items-center justify-center px-5 py-16 sm:px-10">
+      <div class="reveal w-full max-w-sm" style="--i: 1">
+        <div class="mb-8 flex items-center gap-3 lg:hidden">
+          <span class="flex size-9 items-center justify-center rounded-lg bg-chrome text-volt">
+            <.icon name="hero-bell-alert-solid" class="size-5" />
+          </span>
+          <span class="text-xl font-bold tracking-tight">Notifiq</span>
+        </div>
+
+        <p class="font-mono text-[11px] font-medium uppercase tracking-[0.2em] text-ink-3">
+          Acesso do lojista
+        </p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight">Entrar no painel</h1>
+        <p class="mt-2 text-[15px] text-ink-2">Use o e-mail e a senha da sua conta.</p>
+
+        <.form for={@form} id="login-form" action={~p"/entrar"} class="mt-8 space-y-4">
+          <.input
+            field={@form[:email]}
+            type="email"
+            label="E-mail"
+            autocomplete="username"
+            spellcheck="false"
+            required
+          />
+          <.input
+            field={@form[:password]}
+            type="password"
+            label="Senha"
+            autocomplete="current-password"
+            required
+          />
+
+          <button
+            type="submit"
+            id="login-submit"
+            class="group inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand px-4 py-3 text-sm font-semibold text-brand-on shadow-sm transition duration-200 hover:bg-brand-hover active:scale-[0.99] phx-submit-loading:opacity-70"
+          >
+            Entrar
+            <.icon
+              name="hero-arrow-right-micro"
+              class="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+            />
+          </button>
+        </.form>
+
+        <p class="mt-8 text-xs leading-relaxed text-ink-3">
+          Ainda não tem acesso? Fale com quem administra a plataforma.
+        </p>
+      </div>
+    </section>
   </div>
 </Layouts.app>

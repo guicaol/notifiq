@@ -37,6 +37,37 @@ topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
+// Copy buttons: `phx-click={JS.dispatch("phx:copy")}` on an element with `data-copy` and the
+// text in `data-text`. The attribute `data-copied` is set for a moment so CSS can say "Copiado".
+// The Clipboard API needs a focused, secure page; the textarea route covers the rest.
+const copyText = async text => {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch (_error) {
+    const field = document.createElement("textarea")
+    field.value = text
+    field.setAttribute("readonly", "")
+    field.style.position = "fixed"
+    field.style.opacity = "0"
+    document.body.appendChild(field)
+    field.select()
+    const copied = document.execCommand("copy")
+    field.remove()
+    return copied
+  }
+}
+
+window.addEventListener("phx:copy", async event => {
+  const button = event.target.closest("[data-copy]")
+  if (!button) return
+
+  if (await copyText(button.dataset.text || "")) {
+    button.setAttribute("data-copied", "")
+    setTimeout(() => button.removeAttribute("data-copied"), 1600)
+  }
+})
+
 // connect if there are any LiveViews on the page
 liveSocket.connect()
 

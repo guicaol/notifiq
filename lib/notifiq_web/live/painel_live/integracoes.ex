@@ -108,57 +108,62 @@ defmodule NotifiqWeb.PainelLive.Integracoes do
   def render(assigns) do
     ~H"""
     <Layouts.app flash={@flash} current_scope={@current_scope} active={:integracoes}>
-      <div class="space-y-8">
-        <header>
-          <h1 class="text-2xl font-semibold tracking-tight">Integrações</h1>
-          <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Conecte a conta da sua loja para que os pedidos disparem mensagens.
-          </p>
-        </header>
+      <Layouts.page_header caption="Painel / Integrações" title="Integrações">
+        Conecte a conta da sua loja para que os pedidos disparem mensagens.
+      </Layouts.page_header>
 
-        <section class="space-y-3" aria-labelledby="connected-title">
-          <h2
-            id="connected-title"
-            class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-          >
-            Contas conectadas
-          </h2>
+      <div class="space-y-10">
+        <section class="reveal space-y-3" style="--i: 1" aria-labelledby="connected-title">
+          <h2 id="connected-title" class="text-sm font-semibold">Contas conectadas</h2>
 
           <ul
             id="integrations"
             phx-update="stream"
-            class="divide-y divide-zinc-200 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900"
+            class="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
           >
             <li
               id="integrations-empty"
-              class="hidden px-4 py-10 text-center text-sm text-zinc-500 only:block dark:text-zinc-400"
+              class="hidden flex-col items-center px-6 py-14 text-center only:flex"
             >
-              Nenhuma conta conectada ainda.
+              <span class="flex size-11 items-center justify-center rounded-xl bg-surface-2 ring-1 ring-line">
+                <.icon name="hero-puzzle-piece" class="size-5 text-ink-3" />
+              </span>
+              <p class="mt-4 text-sm font-semibold">Nenhuma conta conectada ainda</p>
+              <p class="mt-1 max-w-xs text-sm text-ink-2">
+                Conecte uma conta abaixo e cadastre o endereço do webhook na fonte.
+              </p>
             </li>
             <li
               :for={{id, integration} <- @streams.integrations}
               id={id}
-              class="flex items-center justify-between gap-4 px-4 py-3"
+              class="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-surface-2"
             >
-              <div class="min-w-0">
-                <p class="text-sm font-medium">
-                  {Map.get(@source_names, integration.source, integration.source)}
-                </p>
-                <p class="truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                  {integration.external_account_id}
-                </p>
+              <div class="flex min-w-0 items-center gap-4">
+                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-chrome font-mono text-base font-semibold uppercase text-volt">
+                  {String.first(Map.get(@source_names, integration.source, integration.source))}
+                </span>
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold">
+                    {Map.get(@source_names, integration.source, integration.source)}
+                  </p>
+                  <p class="truncate font-mono text-xs text-ink-2">
+                    {integration.external_account_id}
+                  </p>
+                </div>
               </div>
 
               <div class="flex shrink-0 items-center gap-3">
-                <span class={[
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  if(integration.status == "active",
-                    do:
-                      "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300",
-                    else: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                  )
-                ]}>
-                  {if integration.status == "active", do: "Ativa", else: "Desconectada"}
+                <span
+                  :if={integration.status == "active"}
+                  class="inline-flex items-center gap-2 rounded-full bg-ok-soft px-3 py-1 text-xs font-medium text-ok"
+                >
+                  <span class="live-dot relative size-1.5 rounded-full bg-ok text-ok"></span> Ativa
+                </span>
+                <span
+                  :if={integration.status != "active"}
+                  class="inline-flex items-center gap-2 rounded-full bg-surface-2 px-3 py-1 text-xs font-medium text-ink-2 ring-1 ring-line"
+                >
+                  <span class="size-1.5 rounded-full bg-ink-3"></span> Desconectada
                 </span>
                 <button
                   :if={integration.status == "active"}
@@ -167,7 +172,7 @@ defmodule NotifiqWeb.PainelLive.Integracoes do
                   phx-click="disconnect"
                   phx-value-id={integration.id}
                   data-confirm="Desconectar esta conta? Os pedidos dela deixam de gerar mensagens."
-                  class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-700 transition-colors hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-500/10"
+                  class="rounded-md px-2.5 py-1.5 text-xs font-medium text-bad transition-colors hover:bg-bad-soft"
                 >
                   Desconectar
                 </button>
@@ -176,25 +181,42 @@ defmodule NotifiqWeb.PainelLive.Integracoes do
           </ul>
         </section>
 
-        <section class="space-y-3" aria-labelledby="connect-title">
-          <h2
-            id="connect-title"
-            class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400"
-          >
-            Conectar uma conta
-          </h2>
+        <section class="reveal grid gap-6 lg:grid-cols-[1fr_1.4fr]" style="--i: 2">
+          <div>
+            <h2 id="connect-title" class="text-sm font-semibold">Conectar uma conta</h2>
+            <ol class="mt-4 space-y-4 text-sm text-ink-2">
+              <li class="flex gap-3">
+                <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft font-mono text-xs font-semibold text-brand">
+                  1
+                </span>
+                <span>Informe o identificador da sua conta na fonte.</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft font-mono text-xs font-semibold text-brand">
+                  2
+                </span>
+                <span>Cadastre o endereço do webhook, mostrado mais abaixo, nas configurações da fonte.</span>
+              </li>
+              <li class="flex gap-3">
+                <span class="flex size-6 shrink-0 items-center justify-center rounded-full bg-brand-soft font-mono text-xs font-semibold text-brand">
+                  3
+                </span>
+                <span>Cada pedido novo passa a gerar uma mensagem, se houver template ativo.</span>
+              </li>
+            </ol>
+          </div>
 
           <div
             :if={@sources == []}
             id="no-sources"
-            class="rounded-xl border border-zinc-200 bg-white px-4 py-6 text-sm text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+            class="rounded-2xl border border-dashed border-line bg-surface px-6 py-10 text-center text-sm text-ink-2"
           >
             Nenhuma fonte está disponível no momento.
           </div>
 
           <div
             :if={@sources != []}
-            class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900"
+            class="rounded-2xl border border-line bg-surface p-6 shadow-card"
           >
             <.form for={@form} id="integration-form" phx-submit="connect" class="space-y-4">
               <.input
@@ -226,28 +248,50 @@ defmodule NotifiqWeb.PainelLive.Integracoes do
               <button
                 type="submit"
                 id="integration-submit"
-                class="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 active:scale-[0.99] phx-submit-loading:opacity-70"
+                class="group inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-brand-on shadow-sm transition duration-200 hover:bg-brand-hover active:scale-[0.99] phx-submit-loading:opacity-70"
               >
-                <.icon name="hero-link" class="size-4" /> Conectar
+                <.icon name="hero-link" class="size-4" /> Conectar conta
               </button>
             </.form>
           </div>
         </section>
 
-        <section :if={@sources != []} id="webhook-urls" class="space-y-3">
-          <h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Endereço dos webhooks
-          </h2>
-          <p class="text-sm text-zinc-500 dark:text-zinc-400">
-            Cadastre este endereço nas configurações de webhook da fonte.
-          </p>
+        <section :if={@sources != []} id="webhook-urls" class="reveal space-y-3" style="--i: 3">
+          <div>
+            <h2 class="text-sm font-semibold">Endereço dos webhooks</h2>
+            <p class="mt-1 text-sm text-ink-2">
+              Cadastre este endereço nas configurações de webhook da fonte.
+            </p>
+          </div>
+
           <div
             :for={source <- @sources}
             id={"webhook-url-#{source.key}"}
-            class="rounded-xl border border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900"
+            class="flex flex-col gap-3 rounded-2xl bg-hero p-5 text-hero-text shadow-card sm:flex-row sm:items-center sm:justify-between"
           >
-            <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">{source.name}</p>
-            <code class="mt-1 block break-all text-sm">{url(~p"/api/webhooks/#{source.key}")}</code>
+            <div class="min-w-0">
+              <p class="font-mono text-[10px] font-medium uppercase tracking-[0.2em] text-white/50">
+                {source.name} · POST
+              </p>
+              <code class="mt-1.5 block break-all font-mono text-[13px] text-volt">
+                {url(~p"/api/webhooks/#{source.key}")}
+              </code>
+            </div>
+            <button
+              type="button"
+              id={"copy-#{source.key}"}
+              data-copy
+              data-text={url(~p"/api/webhooks/#{source.key}")}
+              phx-click={JS.dispatch("phx:copy")}
+              class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-semibold text-white ring-1 ring-white/15 transition hover:bg-white/15 active:scale-[0.98]"
+            >
+              <span class="when-idle inline-flex items-center gap-2">
+                <.icon name="hero-clipboard-document" class="size-4" /> Copiar
+              </span>
+              <span class="when-copied hidden items-center gap-2 text-volt">
+                <.icon name="hero-check" class="size-4" /> Copiado
+              </span>
+            </button>
           </div>
         </section>
       </div>
