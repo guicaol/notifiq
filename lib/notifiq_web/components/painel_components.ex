@@ -58,12 +58,15 @@ defmodule NotifiqWeb.PainelComponents do
       >
         {@caption}
       </p>
-      <div class={[
-        "max-w-[28rem] whitespace-pre-line break-words rounded-2xl rounded-bl-md bg-surface px-4 py-3 text-[14px] leading-relaxed shadow-card ring-1 ring-line",
-        if(@muted, do: "text-warn", else: "text-ink")
-      ]}>
-        {@text}
-      </div>
+      <%!-- `phx-no-format`: the text must touch the tags, because `whitespace-pre-line` would
+           show the formatter's line breaks and indentation as blank lines in the bubble. --%>
+      <div
+        phx-no-format
+        class={[
+          "max-w-[28rem] whitespace-pre-line break-words rounded-2xl rounded-bl-md bg-surface px-4 py-3 text-[14px] leading-relaxed shadow-card ring-1 ring-line",
+          if(@muted, do: "text-warn", else: "text-ink")
+        ]}
+      >{@text}</div>
     </div>
     """
   end
